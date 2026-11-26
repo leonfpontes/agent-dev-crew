@@ -95,7 +95,7 @@ Rows keep the trace's column names (`snake_case`); money is in micros, time in m
 Replay answers every write with 405 and `how`. Replay data is seeded in memory from the scoreboard when the server starts, locally and on Vercel, so a stale `.crew/replay.sqlite` never shows old numbers. Live accepts writes only from local origins (403
 otherwise). Bodies are limited to 32 KB. The replay never calls a model or the network.
 
-Commands: `pnpm demo` (build, seed `.crew/replay.sqlite`, serve on http://127.0.0.1:8787); `pnpm crew serve
+Commands: `pnpm demo` (build, then serve the app and the replay API on http://127.0.0.1:8787; `pnpm demo --port 8891` for another port); `pnpm crew serve
 [--live] [--port]`; `pnpm crew run "<request>" [--variant] [--policy]` (a live run in the terminal, the gate
 as a y / c / n prompt).
 

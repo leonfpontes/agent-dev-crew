@@ -40,7 +40,9 @@ function loadEnvLocal(root: string) {
   }
 }
 
+// `pnpm demo -- --port 8891` passes the `--` through: drop it, or the flags after it are ignored.
 const { values, positionals } = parseArgs({
+  args: process.argv.slice(2).filter((arg) => arg !== '--'),
   allowPositionals: true,
   options: {
     live: { type: 'boolean', default: false },

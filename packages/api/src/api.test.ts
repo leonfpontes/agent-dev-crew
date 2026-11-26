@@ -70,7 +70,7 @@ describe('replay mode', () => {
     })
   })
 
-  it('lists the recorded runs (not the evaluation) with the numbers above the table', async () => {
+  it('lists the example runs (not the evaluation) with the numbers above the table', async () => {
     const { status, body } = await get(api, '/api/runs')
     expect(status).toBe(200)
     expect(body.runs.map((r: { id: number }) => r.id).slice(0, 2)).toEqual([143, 142])
@@ -159,7 +159,7 @@ describe('replay mode', () => {
       await post(api, '/api/runs', { request: 'Add an order cancellation endpoint please' }),
     ).toMatchObject({
       status: 405,
-      body: { error: 'The demo replays recorded runs and changes nothing.', how: HOW_TO_RUN_LIVE },
+      body: { error: 'The demo replays example runs and changes nothing.', how: HOW_TO_RUN_LIVE },
     })
     expect((await post(api, '/api/runs/143/gate', { decision: 'approve' })).status).toBe(405)
   })
@@ -211,7 +211,7 @@ describe('replay with the real scoreboard', () => {
     }
   })
 
-  it('keeps the recorded runs for the Runs screen', async () => {
+  it('keeps the example runs for the Runs screen', async () => {
     expect((await get(api, '/api/runs')).body.runs.length).toBeGreaterThan(0)
   })
 })

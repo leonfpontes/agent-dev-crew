@@ -1,4 +1,4 @@
-// The replay database: the recorded runs, with nothing to call and nothing to pay for.
+// The replay database: the example runs, with nothing to call and nothing to pay for.
 // Locally it is `.crew/replay.sqlite` (`pnpm --filter @crew/trace seed`), opened read-only; where no
 // file exists (a serverless function), the same seed is written into an in-memory database.
 // With the real scoreboard (evals/results/latest.json) the Evaluation screen and the playbook

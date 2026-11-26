@@ -137,7 +137,7 @@ export function createApi(options: ApiOptions): (request: Request) => Promise<Re
 
     if (method !== 'GET' && method !== 'HEAD') {
       if (mode === 'replay')
-        return error(405, 'The demo replays recorded runs and changes nothing.', { how: HOW_TO_RUN_LIVE })
+        return error(405, 'The demo replays example runs and changes nothing.', { how: HOW_TO_RUN_LIVE })
       const origin = request.headers.get('origin')
       if (origin && !LOCAL_ORIGIN.test(origin))
         return error(403, `Origin not allowed: ${origin.slice(0, 100)}.`)
