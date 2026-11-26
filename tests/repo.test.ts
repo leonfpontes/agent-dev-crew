@@ -118,7 +118,8 @@ describe('monorepo', () => {
     const config = read('playwright.config.ts')
     expect(config).toContain('process.env.E2E_PORT')
     expect(config).toContain('reuseExistingServer: false')
-    expect(config).toContain('--strictPort')
+    // vite with --strictPort, or the API server (pnpm crew serve), which exits when the port is busy
+    expect(config).toMatch(/--strictPort|packages\/api\/dist\/cli\.js serve --port/)
   })
 
   it('uses the published Atlas components in the app', () => {

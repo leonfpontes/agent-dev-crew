@@ -98,6 +98,27 @@ Commands: `pnpm demo` (build, seed `.crew/replay.sqlite`, serve on http://127.0.
 [--live] [--port]`; `pnpm crew run "<request>" [--variant] [--policy]` (a live run in the terminal, the gate
 as a y / c / n prompt).
 
+### App (`@crew/web`)
+
+The four screens read only the API above; every number on them comes from it. Components are
+`@leonfpontes/atlas-ui` from npm, with one color of its own, `--crew`, for the human gate.
+
+| Route         | Screen                                                                                              |
+| ------------- | --------------------------------------------------------------------------------------------------- |
+| `/`           | Runs: the run waiting at the gate first, status tabs, variant filter, search (`/`), arrow keys      |
+| `/runs/:id`   | Run detail; `?step=<id>` selects a step, `?section=summary\|trace\|diff\|retro` picks the phone tab |
+| `/playbook`   | Playbook; `#v<n>` opens a version in the history, `#engineer` (any role) scrolls to its rules       |
+| `/evaluation` | Evaluation                                                                                          |
+
+`?theme=dark` or `?theme=light` (also `?dark`) sets the theme for links and captures; otherwise the
+saved choice, then the system. `pnpm dev` serves the app on 127.0.0.1:5173 and sends `/api` to
+`CREW_API` (default `http://127.0.0.1:8787`, the API of `pnpm crew serve`). The app's tests call the
+real API handler in process, over the replay seed (`apps/web/src/test/api.tsx`).
+
+Decisions in the app write through the API: the gate with `POST /api/runs/:id/gate`; a playbook
+proposal with `POST /api/playbook/:version` and `{ decision: "approve" | "reject", rule? }`, a route
+the API does not have yet (replay answers 405 to both, and the app shows the API's `how`).
+
 ### Hidden tests
 
 `evals/requests/requests.json` lists the 10 requests; `evals/requests/<id>/` holds the hidden test files

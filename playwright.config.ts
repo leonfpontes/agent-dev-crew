@@ -1,8 +1,9 @@
 import { defineConfig, devices } from '@playwright/test'
 
-// End-to-end tests run against the built app on E2E_PORT (default 4173). The server is always
-// started here, on that port only (--strictPort, never reused), so a busy port fails fast instead
-// of testing a server someone else left running.
+// End-to-end tests run against the built app and the replay API on E2E_PORT (default 4173): the
+// same server as pnpm demo (pnpm crew serve), so build first (pnpm qa does). The server is always
+// started here, on that port only (it exits when the port is busy, and is never reused), so a busy
+// port fails fast instead of testing a server someone else left running.
 const port = Number(process.env.E2E_PORT ?? 4173)
 
 export default defineConfig({
@@ -14,8 +15,8 @@ export default defineConfig({
   use: { baseURL: `http://127.0.0.1:${port}`, trace: 'on-first-retry' },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
-    command: `pnpm --filter @crew/web exec vite preview --host 127.0.0.1 --port ${port} --strictPort`,
-    url: `http://127.0.0.1:${port}/`,
+    command: `node packages/api/dist/cli.js serve --port ${port}`,
+    url: `http://127.0.0.1:${port}/api/meta`,
     reuseExistingServer: false,
     timeout: 60_000,
   },
