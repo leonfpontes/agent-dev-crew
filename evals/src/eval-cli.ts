@@ -18,7 +18,7 @@ import { migrate, openTrace } from '@crew/trace'
 
 import { parseEvalArgs } from './args.js'
 import { runEvaluation } from './harness.js'
-import { loadRequests } from './requests.js'
+import { loadRequestSet, requestSetDir } from './requests.js'
 import { buildResults, toMarkdown, type ResultsMeta } from './results.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -34,7 +34,7 @@ const args = parseEvalArgs(process.argv.slice(2), (set, probe) =>
 const values = { trace: args.trace, out: args.out, report: args.report }
 
 const micros = (usd: number) => Math.round(usd * 1_000_000)
-const requestsDir = path.join(root, args.set === 'easy' ? 'evals/requests' : `evals/requests-${args.set}`)
+const requestsDir = requestSetDir(path.join(root, 'evals'), args.set)
 const exampleDir = path.join(root, 'examples/fernhill-orders')
 const metaFile = `${values.trace}.meta.json`
 
@@ -42,7 +42,8 @@ if (!existsSync(path.join(requestsDir, 'requests.json')))
   throw new Error(
     `The ${args.set} set has no requests yet: ${path.relative(root, requestsDir)}/requests.json is missing.`,
   )
-const { requests: all, problems } = loadRequests(requestsDir, exampleDir)
+// Each set has its own rules (the hard set's solutions may add files to src/).
+const { requests: all, problems } = loadRequestSet(path.join(root, 'evals'), exampleDir, args.set)
 if (problems.length) throw new Error(`The requests folder has problems:\n${problems.join('\n')}`)
 const wanted = args.requests
 const requests = wanted ? all.filter((r) => wanted.includes(r.id)) : all

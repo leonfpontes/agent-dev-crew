@@ -4,12 +4,10 @@
 
 import { parseArgs } from 'node:util'
 
+import { isRequestSet, REQUEST_SETS, type RequestSet } from './requests.js'
+
 /** Budgets above this need `--confirm-budget`, so a typo can't buy a large evaluation. */
 export const MAX_BUDGET_USD = 20
-
-/** The request sets: the easy baseline (evals/requests) and the hard set (evals/requests-hard). */
-export const SETS = ['easy', 'hard'] as const
-export type RequestSet = (typeof SETS)[number]
 
 export interface EvalArgs {
   set: RequestSet
@@ -64,9 +62,9 @@ export function parseEvalArgs(
       'confirm-budget': { type: 'boolean', default: false },
     },
   })
-  if (!SETS.includes(values.set as RequestSet))
-    throw new Error(`--set must be one of ${SETS.join(', ')} (got "${values.set}").`)
-  const set = values.set as RequestSet
+  if (!isRequestSet(values.set))
+    throw new Error(`--set must be one of ${REQUEST_SETS.join(', ')} (got "${values.set}").`)
+  const set: RequestSet = values.set
   const probe = values.probe
   const paths = typeof defaults === 'function' ? defaults(set, probe) : defaults
   const args: EvalArgs = {

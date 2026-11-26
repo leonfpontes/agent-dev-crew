@@ -101,6 +101,26 @@ describe('Budget', () => {
   })
 })
 
+describe('Budget.reserveOrWait', () => {
+  it('waits for a run in flight to settle instead of skipping, and gives up only when nothing is in flight', async () => {
+    const b = new Budget(500, {})
+    for (let i = 0; i < 5; i++) expect(await b.reserveOrWait('main', 100)).toBe(true)
+    let sixth: boolean | undefined
+    const waiting = b.reserveOrWait('main', 100).then((ok) => (sixth = ok))
+    await new Promise((r) => setTimeout(r, 5))
+    expect(sixth).toBeUndefined() // full: it waits
+    b.settle('main', 100, 10) // 10 spent + 400 reserved + 100 > 500: still waits
+    await new Promise((r) => setTimeout(r, 5))
+    expect(sixth).toBeUndefined()
+    b.settle('main', 100, 10)
+    await waiting
+    expect(sixth).toBe(true)
+    for (let i = 0; i < 3; i++) b.settle('main', 100, 10)
+    b.settle('main', 100, 400) // 450 spent, nothing in flight
+    expect(await b.reserveOrWait('main', 100)).toBe(false)
+  })
+})
+
 describe('pool', () => {
   it('runs every item with at most `limit` at once', async () => {
     let running = 0

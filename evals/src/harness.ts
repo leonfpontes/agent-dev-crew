@@ -118,6 +118,22 @@ export class Budget {
     this.reservedBySuite[suite] -= reservedMicros
     this.spent += spentMicros
     this.bySuite[suite] += spentMicros
+    for (const wake of this.waiting.splice(0)) wake()
+  }
+
+  private waiting: (() => void)[] = []
+
+  /**
+   * Reserves when the run fits; otherwise waits for a run in flight to settle and tries again (a
+   * finished run frees its reservation and usually spent far less). False only when nothing is in
+   * flight and the run still doesn't fit: the budget is really spent.
+   */
+  async reserveOrWait(suite: EvalSuite, micros: number): Promise<boolean> {
+    for (;;) {
+      if (this.reserve(suite, micros)) return true
+      if (this.reserved === 0) return false
+      await new Promise<void>((wake) => this.waiting.push(wake))
+    }
   }
 }
 
@@ -165,7 +181,7 @@ export async function runEvaluation(options: EvalOptions): Promise<EvalOutcome> 
 
   const runJob = async (job: EvalJob) => {
     const label = `${job.suite} ${job.variant}${job.playbookVersion ? ` v${job.playbookVersion}` : ''} r${job.round} ${job.request.id}`
-    if (!budget.reserve(job.suite, runBudgetMicros)) {
+    if (!(await budget.reserveOrWait(job.suite, runBudgetMicros))) {
       outcome.skipped++
       outcome.stoppedEarly = true
       log(`skip  ${label}: the budget left can't cover one more run`)
@@ -200,6 +216,10 @@ export async function runEvaluation(options: EvalOptions): Promise<EvalOutcome> 
       const hidden = await scoreHiddenTests(trace, result.runId, result.workspace.dir, files, {
         timeoutMs: options.testTimeoutMs,
       })
+      // The failing hidden tests go to the log (not the trace): what the data story calibrates with.
+      if (hidden.error) log(`      hidden tests did not run: ${hidden.error.slice(0, 300)}`)
+      for (const f of hidden.failures)
+        log(`      hidden fail ${job.request.id}: ${f.name}: ${f.message.replace(/\s+/g, ' ').slice(0, 300)}`)
       rmSync(path.dirname(result.workspace.dir), { recursive: true, force: true })
       outcome.runs++
       log(
