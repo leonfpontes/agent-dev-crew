@@ -1,4 +1,4 @@
-# 0002 · Private packages, Node 22 and the built-in SQLite
+# 0002 · Private packages, Node 24 and the built-in SQLite
 
 - **Date:** 2026-11-26 · **Status:** accepted
 
@@ -20,8 +20,11 @@ on a laptop, in CI and in the replay demo, with nothing to compile on install.
 
 - **All packages are private.** Nothing goes to npm, so the "install the `.tgz` in an empty
   project" check has nothing to test; if a package is ever published, it applies from then on.
-- **Node 22.13 or newer.** The trace uses Node's built-in `node:sqlite` (unflagged since 22.13),
-  and Vitest 5 needs 22.12+. Node 20 is not supported.
+- **Node 24 or newer** (first written as 22.13, raised on 26/11/2026). The trace uses Node's
+  built-in `node:sqlite`, and on Node 22 two things break: Vite doesn't list `node:sqlite` among
+  the built-ins, so the app's tests can't load the replay API, and the sandboxed test runner fails
+  under 22's permission model. The first CI run on Linux, on Node 22, showed both; every run before
+  was on 24. Node 24 is the active LTS, and Vercel runs 26.
 - **SQLite through `node:sqlite`:** one file under `.crew/`, migrations in SQL, no native module.
 - TypeScript 6.0 (typescript-eslint 8 supports up to 6.0); libraries build with `tsc`, the app with Vite.
 
@@ -33,6 +36,6 @@ on a laptop, in CI and in the replay demo, with nothing to compile on install.
 
 ## Consequences
 
-- Node 22.x prints an "experimental" warning the first time `node:sqlite` loads; it is stable enough
-  for a local trace and the API is small.
+- Node 24 may print an "experimental" warning the first time `node:sqlite` loads; it is stable
+  enough for a local trace and the API is small.
 - The replay demo ships recorded runs; how it reads them on Vercel is decided with the replay API.

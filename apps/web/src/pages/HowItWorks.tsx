@@ -659,7 +659,7 @@ function EvalSection({ sets }: { sets: ScoreSet[] }) {
 
 function Quickstart({ budgetMicros }: { budgetMicros: number }) {
   const steps: { title: string; text: ReactNode; code: string; copy: string }[] = [
-    { title: 'Get the code', text: 'Node 22 and pnpm.', code: CLONE, copy: CLONE },
+    { title: 'Get the code', text: 'Node 24 and pnpm.', code: CLONE, copy: CLONE },
     {
       title: 'Open the demo',
       text: (

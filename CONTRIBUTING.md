@@ -2,7 +2,7 @@
 
 ## Set up
 
-Node 22 (see `.nvmrc`) and pnpm (`corepack enable`), then:
+Node 24 (see `.nvmrc`) and pnpm (`corepack enable`), then:
 
 ```bash
 pnpm install

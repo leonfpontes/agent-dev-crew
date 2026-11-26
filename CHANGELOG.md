@@ -4,6 +4,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions: [Sem
 
 ## [Unreleased]
 
+### Changed
+
+- Node 24 or newer (was 22.13): on Node 22 the app's tests can't load `node:sqlite` and the sandboxed test runner fails ([ADR 0002](docs/adr/0002-packages-node-and-storage.md)).
+
 ### Fixed
 
 - The sandbox no longer reads the real repository through pnpm's workspace links: the test runner reads only the store folders of its own dependencies.

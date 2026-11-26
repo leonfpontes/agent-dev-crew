@@ -7,7 +7,7 @@ personal or internal team data goes in. Architecture: [docs/ARCHITECTURE.md](doc
 ## Commands
 
 ```bash
-pnpm install               # install (Node 22, see .nvmrc)
+pnpm install               # install (Node 24, see .nvmrc)
 pnpm dev                   # web app on 127.0.0.1:5173
 pnpm check                 # types + lint + format + tests + build: required before you finish
 pnpm qa                    # pnpm check, then the end-to-end tests

@@ -22,7 +22,7 @@ puts a person at the plan, records every step, and lets hidden tests, not the ag
 
 ## Quickstart
 
-Node 22 and pnpm. The demo replays example runs: no API key, no cost.
+Node 24 and pnpm. The demo replays example runs: no API key, no cost.
 
 ```bash
 git clone https://github.com/leonfpontes/agent-dev-crew
