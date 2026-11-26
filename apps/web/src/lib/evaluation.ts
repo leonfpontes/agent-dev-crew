@@ -20,33 +20,68 @@ export function bestCrew(stats: VariantStats[]): VariantStats | undefined {
     )[0]
 }
 
+/** "half", "a third of", "52% of": one cost as a share of another, for "at half the cost". */
+export function costShare(x: number): string {
+  const words: [number, string][] = [
+    [1 / 2, 'half'],
+    [1 / 3, 'a third of'],
+    [1 / 4, 'a quarter of'],
+    [2 / 3, 'two thirds of'],
+    [3 / 4, 'three quarters of'],
+  ]
+  const word = words.find(([v]) => Math.abs(x - v) <= 0.04)
+  return word ? word[1] : `${Math.round(x * 100)}% of`
+}
+
+export type Verdict = 'one' | 'crew' | 'tie'
+
+/** Who did better, by the page's rule: a gap no larger than the two ± together is a tie. */
+export function verdict(one: { mean: number; sd: number }, crew: { mean: number; sd: number }): Verdict {
+  const gap = crew.mean - one.mean
+  if (Math.abs(gap) <= one.sd + crew.sd) return 'tie'
+  return gap > 0 ? 'crew' : 'one'
+}
+
 /**
- * The headline sentence, written from the numbers whichever way they fall. It compares one agent
- * with the best crew variant; a gap no larger than the two ± together is a tie, by the page's own
- * rule, and the sentence then gives the cost ratio. Null when one of the two is missing.
+ * The headline sentence, written from the numbers whichever way they fall: one agent against the
+ * best crew variant, with the cost ratio. `set` names the request set ("of the hard requests").
  */
+export function compareSentence(
+  one: { pass: { mean: number; sd: number }; cost: number },
+  crew: { pass: { mean: number; sd: number }; cost: number; who: string },
+  set?: 'easy' | 'hard',
+): string {
+  const pct = (x: number) => `${Math.round(x * 100)}%`
+  const of = set ? `of the ${set} requests` : 'of the requests'
+  const Who = crew.who.charAt(0).toUpperCase() + crew.who.slice(1)
+  const ratio = one.cost ? crew.cost / one.cost : 0
+  const v = verdict(one.pass, crew.pass)
+  if (v === 'tie') {
+    const shares =
+      pct(one.pass.mean) === pct(crew.pass.mean)
+        ? `both pass all hidden tests on ${pct(one.pass.mean)} ${of}`
+        : `pass all hidden tests on ${pct(one.pass.mean)} and ${pct(crew.pass.mean)} ${of}, a gap within the ±`
+    return `One agent and ${crew.who} ${shares}${ratio ? `; the crew costs ${times(ratio)} as much` : ''}.`
+  }
+  if (v === 'crew')
+    return `${Who} passes all hidden tests on ${pct(crew.pass.mean)} ${of} vs ${pct(one.pass.mean)} for one agent${ratio ? `, at ${times(ratio)} the cost` : ''}.`
+  return `One agent passes all hidden tests on ${pct(one.pass.mean)} ${of} vs ${pct(crew.pass.mean)} for ${crew.who}${ratio > 1 ? `, at ${costShare(1 / ratio)} the cost` : ratio ? `, which costs ${times(ratio)} as much` : ''}.`
+}
+
+/** The Evaluation headline, from the API's numbers. Null when one of the two variants is missing. */
 export function headline(data: EvaluationResponse): string | null {
   const one = byVariant(data.main, 'single-agent')
   const crew = bestCrew(data.main)
   if (!one || !crew) return null
-  const who = crew.variant === 'crew-playbook' ? 'the crew with the playbook' : 'the crew'
-  const Who = who.charAt(0).toUpperCase() + who.slice(1)
-  const pct = (x: number) => `${Math.round(x * 100)}%`
-  const ratio = one.costMicrosPerRequest.mean
-    ? crew.costMicrosPerRequest.mean / one.costMicrosPerRequest.mean
-    : 0
-  const gap = crew.passRate.mean - one.passRate.mean
-  // passRate is the share of requests whose hidden tests all passed.
-  if (Math.abs(gap) <= one.passRate.sd + crew.passRate.sd) {
-    const shares =
-      pct(one.passRate.mean) === pct(crew.passRate.mean)
-        ? `both pass all hidden tests on ${pct(one.passRate.mean)} of the requests`
-        : `pass all hidden tests on ${pct(one.passRate.mean)} and ${pct(crew.passRate.mean)} of the requests, a gap within the ±`
-    return `One agent and ${who} ${shares}${ratio ? `; the crew costs ${times(ratio)} as much` : ''}.`
-  }
-  if (gap > 0)
-    return `${Who} passes all hidden tests on ${pct(crew.passRate.mean)} of the requests vs ${pct(one.passRate.mean)} for one agent${ratio ? `, at ${times(ratio)} the cost` : ''}.`
-  return `One agent passes all hidden tests on ${pct(one.passRate.mean)} of the requests vs ${pct(crew.passRate.mean)} for ${who}${ratio ? `, which costs ${times(ratio)} as much` : ''}.`
+  return compareSentence(
+    { pass: one.passRate, cost: one.costMicrosPerRequest.mean },
+    {
+      pass: crew.passRate,
+      cost: crew.costMicrosPerRequest.mean,
+      who: crew.variant === 'crew-playbook' ? 'the crew with the playbook' : 'the crew',
+    },
+    data.set,
+  )
 }
 
 /** Digits for a set of costs per request: 4 when one is under a cent, so $0.0054 doesn't read $0.005. */
@@ -111,7 +146,8 @@ export function bestOf(
   if (values.length < 2) return []
   const best = values.reduce((a, b) => ((higher ? b.x > a.x : b.x < a.x) ? b : a)).x
   const winners = values.filter((e) => Math.abs(e.x - best) < 1e-9).map((e) => e.v)
-  return winners.length === values.length ? [] : winners
+  // When every variant shares the value, none is best; when some don't apply, the tied ones are.
+  return winners.length === stats.length ? [] : winners
 }
 
 /** A round step for an axis that covers `max`: 0.06 for 0.046, 0.3 for 0.21. */

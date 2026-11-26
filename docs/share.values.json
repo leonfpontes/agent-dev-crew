@@ -7,7 +7,9 @@
     "oneAgent": 100,
     "crew": 88,
     "crewLabel": "the crew",
-    "costRatio": "1.9×"
+    "costRatio": "1.9×",
+    "verdict": "one",
+    "oneCost": "half"
   },
   "run": {
     "id": 142,

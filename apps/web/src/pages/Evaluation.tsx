@@ -19,6 +19,10 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
 } from '@leonfpontes/atlas-ui'
 
 import {
@@ -51,7 +55,8 @@ import {
 import { useApi } from '../lib/api'
 import { clock, percent, sdPoints, tokensShort, usd } from '../lib/format'
 import { useTitle } from '../lib/hooks'
-import { Link } from '../lib/router'
+import { Link, setQuery, useLocation } from '../lib/router'
+import { scoreSets } from '../lib/scoreboards'
 import type { EvaluationResponse, Meta, PlaybookVersion, Variant, VariantStats } from '../lib/types'
 import { VARIANTS } from '../lib/types'
 import { VARIANT_LABEL } from './Runs'
@@ -130,7 +135,16 @@ function LearningCurve({ data, versions }: { data: EvaluationResponse; versions:
   const { ref, W, L, R, narrow } = useChartFrame()
   const x = (v: number) => (maxV === 1 ? (L + R) / 2 : L + 20 + ((v - 1) * (R - L - 40)) / (maxV - 1))
   const title = (v: number) =>
-    versions.find((p) => p.version === v)?.title ?? (v === 1 ? 'Initial playbook' : `v${v}`)
+    versions.find((p) => p.version === v)?.title ?? (v === 1 ? 'Initial playbook' : `playbook v${v}`)
+  // Did the rules the retro added help? The last version against the crew with no playbook, by the ± rule.
+  const last = points.at(-1)
+  const plain = byVariant(data.main, 'crew')
+  const learned =
+    last && plain && last.playbookVersion > 1
+      ? last.passRate.mean > plain.passRate.mean + plain.passRate.sd + last.passRate.sd
+        ? `The rules learned up to v${last.playbookVersion} made the crew better: ${percent(last.passRate.mean)} against ${percent(plain.passRate.mean)} with no playbook.`
+        : `The rules learned up to v${last.playbookVersion} did not make the crew better: ${percent(last.passRate.mean)} against ${percent(plain.passRate.mean)} with no playbook.`
+      : null
   const baselines = (['single-agent', 'crew'] as const)
     .map((v) => ({ v, s: byVariant(data.main, v) }))
     .filter((b): b is { v: 'single-agent' | 'crew'; s: VariantStats } => !!b.s)
@@ -286,17 +300,19 @@ function LearningCurve({ data, versions }: { data: EvaluationResponse; versions:
           ))}
         </g>
         <g className="fill-muted-foreground">
-          {Array.from({ length: maxV }, (_, i) => i + 1).map((v) => (
-            <text
-              key={v}
-              x={x(v)}
-              y="224"
-              textAnchor="middle"
-              className={cn(!measured.has(v) && 'opacity-55')}
-            >
-              v{v}
-            </text>
-          ))}
+          {Array.from({ length: maxV }, (_, i) => i + 1)
+            .filter((v) => maxV <= 8 || measured.has(v))
+            .map((v) => (
+              <text
+                key={v}
+                x={x(v)}
+                y="224"
+                textAnchor="middle"
+                className={cn(!measured.has(v) && 'opacity-55')}
+              >
+                v{v}
+              </text>
+            ))}
         </g>
       </svg>
       <div className="sr-only">
@@ -339,18 +355,33 @@ function LearningCurve({ data, versions }: { data: EvaluationResponse; versions:
             className="grid min-h-7 grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-2 border-b last:border-b-0"
           >
             <b className="font-mono font-medium tabular-nums">v{p.playbookVersion}</b>
-            <Link
-              href={`/playbook#v${p.playbookVersion}`}
-              className="inline-flex min-h-6 items-center text-foreground underline underline-offset-[3px] max-[760px]:min-h-11"
-            >
-              {p.playbookVersion === 1 ? lower(title(1)) : `+ ${lower(title(p.playbookVersion))}`}
-            </Link>
+            {versions.some((v) => v.version === p.playbookVersion) ? (
+              <Link
+                href={`/playbook#v${p.playbookVersion}`}
+                className="inline-flex min-h-6 items-center text-foreground underline underline-offset-[3px] max-[760px]:min-h-11"
+              >
+                {p.playbookVersion === 1 ? lower(title(1)) : `+ ${lower(title(p.playbookVersion))}`}
+              </Link>
+            ) : (
+              // This set's playbook history is not in the replay (it keeps the easy set's): no link.
+              <span>
+                {p.playbookVersion === 1 ? 'initial playbook' : `rules learned up to v${p.playbookVersion}`}
+              </span>
+            )}
             <span className="text-muted-foreground">
               {p.rounds} {p.rounds === 1 ? 'round' : 'rounds'}
             </span>
           </li>
         ))}
       </ol>
+      {learned && <p className="mt-2.5 text-[13px] font-medium">{learned}</p>}
+      {(data.notes ?? []).length > 0 && (
+        <ul className="mt-2 grid list-disc gap-1 pl-5 text-[13px] text-muted-foreground">
+          {data.notes!.map((n) => (
+            <li key={n}>{n}</li>
+          ))}
+        </ul>
+      )}
       {points.length === 1 && (
         <p className="mt-2.5 rounded-md border border-dashed px-3 py-2 text-[13px] text-muted-foreground">
           One point so far: the learning runs measured v{points[0]!.playbookVersion} only. The curve grows
@@ -367,6 +398,7 @@ function LearningCurve({ data, versions }: { data: EvaluationResponse; versions:
         </svg>
         1 round
         {unmeasured.length > 0 &&
+          unmeasured.length <= 3 &&
           ` · ${unmeasured.map((v) => `v${v}`).join(' and ')} ${
             unmeasured.every((v) => versions.find((p) => p.version === v)?.source === 'manual')
               ? 'changed wording only and'
@@ -811,10 +843,47 @@ function Command({ data }: { data: EvaluationResponse }) {
   )
 }
 
+const SET_TAB: Record<'easy' | 'hard', (n: number | undefined) => string> = {
+  hard: (n) => `Hard set${n ? ` · ${n} two-part requests` : ''}`,
+  easy: (n) => `Easy set${n ? ` · ${n} requests` : ''}`,
+}
+
+/** The request sets the API has, hard first; the one in ?set=, else the first. */
+function useSet(meta: Meta) {
+  const { query } = useLocation()
+  const sets = [...(meta.evaluationSets ?? ['easy'])].sort((a, b) => (a === b ? 0 : a === 'hard' ? -1 : 1))
+  const asked = query.get('set')
+  const set = sets.find((s) => s === asked) ?? sets[0]!
+  return { sets, set }
+}
+
 export function EvaluationPage({ meta }: { meta: Meta }) {
   useTitle('Evaluation · Agent Dev Crew')
-  const load = useApi<EvaluationResponse>('/api/evaluation')
-  const playbook = useApi<{ versions: PlaybookVersion[] }>('/api/playbook')
+  const { sets, set } = useSet(meta)
+  const load = useApi<EvaluationResponse>(
+    `/api/evaluation${sets.length > 1 || set !== 'easy' ? `?set=${set}` : ''}`,
+  )
+  // The replay's playbook history is the easy set's; the hard set's curve stands on its own.
+  const playbook = useApi<{ versions: PlaybookVersion[] }>(set === 'easy' ? '/api/playbook' : null)
+  const counts = Object.fromEntries(scoreSets().map((s) => [s.set, s.requests]))
+  // The set tabs wrap the page: the panel is the scoreboard of the chosen set.
+  const withTabs = (page: ReactNode) =>
+    sets.length > 1 ? (
+      <Tabs value={set} onValueChange={(v) => setQuery('set', v === sets[0] ? null : v)} className="gap-0">
+        <TabsList aria-label="Request set" className="mb-5 max-[760px]:w-full max-[760px]:overflow-x-auto">
+          {sets.map((s) => (
+            <TabsTrigger key={s} value={s} className="whitespace-nowrap">
+              {SET_TAB[s](counts[s])}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        <TabsContent value={set} tabIndex={-1} className="focus-visible:ring-0">
+          {page}
+        </TabsContent>
+      </Tabs>
+    ) : (
+      page
+    )
 
   if (load.state === 'loading')
     return (
@@ -833,7 +902,7 @@ export function EvaluationPage({ meta }: { meta: Meta }) {
 
   const data = load.data
   if (data.main.length === 0)
-    return (
+    return withTabs(
       <>
         <PageHeader title="Evaluation" />
         <EmptyState icon={<Icon name="chart" size={20} />} title="Run the evaluation to fill this page">
@@ -846,7 +915,7 @@ export function EvaluationPage({ meta }: { meta: Meta }) {
             {`$ ${EVAL_COMMAND}`}
           </CodeBlock>
         </EmptyState>
-      </>
+      </>,
     )
 
   const s = scope(data)
@@ -896,7 +965,7 @@ export function EvaluationPage({ meta }: { meta: Meta }) {
       v: new Date(data.finishedAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }),
     })
 
-  return (
+  return withTabs(
     <>
       <PageHeader
         eyebrow={`Evaluation · ${s.requests} requests × ${s.variants} variants × ${s.rounds} rounds`}
@@ -918,6 +987,6 @@ export function EvaluationPage({ meta }: { meta: Meta }) {
       <Metrics data={data} />
       <Matrix data={data} />
       <Command data={data} />
-    </>
+    </>,
   )
 }

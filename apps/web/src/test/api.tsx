@@ -4,6 +4,7 @@ import { createApi, loadReplay, type ReplayOptions } from '@crew/api/replay'
 import { render } from '@testing-library/react'
 import { vi } from 'vitest'
 
+import hard from '@repo/evals/results/hard.json'
 import latest from '@repo/evals/results/latest.json'
 import { App } from '../App'
 
@@ -26,10 +27,12 @@ export function installApi({
   scoreboard?: 'example' | 'real'
   override?: (path: string) => unknown
 } = {}) {
-  const { trace, exampleData } = loadReplay({
+  const replay = loadReplay({
     now: NOW,
     evaluation: scoreboard === 'real' ? (latest as unknown as ReplayOptions['evaluation']) : undefined,
+    hardEvaluation: scoreboard === 'real' ? (hard as unknown as ReplayOptions['evaluation']) : undefined,
   })
+  const { trace, exampleData } = replay
   // Live: run #143 waits at the gate with a plan, as the engine's WebGate holds it.
   const decided: unknown[] = []
   const plan = {
@@ -53,6 +56,8 @@ export function installApi({
     trace,
     mode,
     exampleData: mode === 'replay' ? exampleData : false,
+    evaluationMeta: replay.evaluationMeta,
+    evaluations: mode === 'replay' ? replay.evaluations : undefined,
     gate: mode === 'live' ? gate : undefined,
     live: { available: mode === 'live' },
   })

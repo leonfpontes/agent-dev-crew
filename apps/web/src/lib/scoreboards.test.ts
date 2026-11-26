@@ -44,12 +44,14 @@ describe('scoreboards', () => {
       crew: 88,
       crewLabel: 'the crew',
       costRatio: '1.9×',
+      verdict: 'one',
+      oneCost: 'half',
     })
     expect(setHeadline(hard[0]!)).toBe(
-      'On the hard set, one agent passes all hidden tests on 100% of the requests vs 88% for the crew, which costs 1.9× as much.',
+      'One agent passes all hidden tests on 100% of the hard requests vs 88% for the crew, at half the cost.',
     )
     expect(setHeadline(hard[1]!)).toBe(
-      'On the easy set, one agent and the crew both pass all hidden tests on 100% of the requests; the crew costs 3.1× as much.',
+      'One agent and the crew both pass all hidden tests on 100% of the easy requests; the crew costs 3.1× as much.',
     )
   })
 })

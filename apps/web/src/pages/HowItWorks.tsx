@@ -514,7 +514,8 @@ function PlaybookSection({ run, versions }: { run?: RunDetail; versions?: Playbo
 
 function SetTable({ set }: { set: ScoreSet }) {
   const stats = VARIANTS.map((v) => set.main.find((m) => m.variant === v)).filter((m): m is SetVariant => !!m)
-  const digits = stats.some((m) => m.costUsdPerRequest.mean < 0.01) ? 4 : 3
+  // Four decimals: these costs are a few cents, and $0.0274 against $0.0529 is the point.
+  const digits = 4
   const best = (pick: (m: SetVariant) => number | null, higher = false): Variant[] => {
     const values = stats
       .map((m) => ({ v: m.variant, x: pick(m) }))
@@ -522,7 +523,7 @@ function SetTable({ set }: { set: ScoreSet }) {
     if (values.length < 2) return []
     const top = values.reduce((a, b) => ((higher ? b.x > a.x : b.x < a.x) ? b : a)).x
     const winners = values.filter((e) => Math.abs(e.x - top) < 1e-9).map((e) => e.v)
-    return winners.length === values.length ? [] : winners
+    return winners.length === stats.length ? [] : winners
   }
   const rows: { name: string; best: Variant[]; cell: (m: SetVariant) => ReactNode }[] = [
     {
@@ -599,11 +600,11 @@ function EvalSection({ sets }: { sets: ScoreSet[] }) {
         <SecHead eyebrow="Evaluation" title="Measured against one agent" id="eval-h">
           Feature requests with hidden acceptance tests the agents never see. Three variants run every
           request: one agent doing everything, the crew, and the crew with the playbook it learned. A request
-          passes when all its hidden tests pass; mean ± standard deviation across rounds. Two sets: the hard
-          one, with requests in two parts that interact, and the easy one, the baseline.
+          passes when all its hidden tests pass; mean ± standard deviation across rounds. Below, the hard set:
+          requests in two parts that interact. The easy set, the baseline, is one link away.
         </SecHead>
         <div className="grid gap-10">
-          {sets.map((set) => (
+          {sets.slice(0, 1).map((set) => (
             <div key={set.set} className="grid gap-3">
               <h3 className="text-base font-semibold">
                 {set.set === 'hard' ? 'Hard set' : 'Easy set · the baseline'}{' '}
@@ -622,6 +623,15 @@ function EvalSection({ sets }: { sets: ScoreSet[] }) {
           ))}
         </div>
         <p className="mt-6 flex flex-wrap items-center gap-2.5 text-sm text-muted-foreground">
+          {sets.slice(1).map((o) => (
+            <Link
+              key={o.set}
+              href={`/evaluation?set=${o.set}`}
+              className="inline-flex min-h-6 items-center gap-1 text-primary underline underline-offset-[3px] max-[760px]:min-h-11"
+            >
+              {o.set === 'easy' ? 'Easy set' : 'Hard set'} <Icon name="arrow" size={14} />
+            </Link>
+          ))}
           <span>
             Reproduce: <code>pnpm eval</code> and <code>pnpm eval --set hard</code>
           </span>

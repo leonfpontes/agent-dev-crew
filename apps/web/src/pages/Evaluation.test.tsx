@@ -17,7 +17,10 @@ describe('Evaluation', () => {
     'writes the headline from the %s scoreboard, with no number typed by hand',
     async (scoreboard) => {
       installApi({ scoreboard })
-      const data = await getJson<EvaluationResponse>('/api/evaluation')
+      // The page opens on the hard set when the API has it.
+      const data = await getJson<EvaluationResponse>(
+        scoreboard === 'real' ? '/api/evaluation?set=hard' : '/api/evaluation',
+      )
       renderAt('/evaluation')
       expect(await screen.findByRole('heading', { level: 1, name: headline(data)! })).toBeTruthy()
       expect(screen.queryByRole('note') !== null).toBe(data.exampleData)
@@ -71,10 +74,38 @@ describe('Evaluation', () => {
 
   it('shows a single measured version as one point and says why', async () => {
     installApi({ scoreboard: 'real' })
-    const data = await getJson<EvaluationResponse>('/api/evaluation')
+    const data = await getJson<EvaluationResponse>('/api/evaluation?set=hard')
     renderAt('/evaluation')
     await screen.findByRole('heading', { name: 'Per request' })
     if (data.learningCurve.points.length === 1) expect(screen.getByText(/One point so far/)).toBeTruthy()
     else expect(screen.queryByText(/One point so far/)).toBeNull()
+  })
+})
+
+describe('Evaluation · two request sets', () => {
+  it('opens on the hard set, with a tab for each set, and keeps the choice in the address', async () => {
+    installApi({ scoreboard: 'real' })
+    const hard = await getJson<EvaluationResponse>('/api/evaluation?set=hard')
+    const easy = await getJson<EvaluationResponse>('/api/evaluation?set=easy')
+    const user = userEvent.setup()
+    renderAt('/evaluation')
+    const tabs = await screen.findByRole('tablist', { name: 'Request set' })
+    const [first, second] = within(tabs).getAllByRole('tab')
+    expect(first!.textContent).toMatch(/^Hard set · \d+ two-part requests$/)
+    expect(second!.textContent).toMatch(/^Easy set · \d+ requests$/)
+    expect(first!.getAttribute('aria-selected')).toBe('true')
+    expect(await screen.findByRole('heading', { level: 1, name: headline(hard)! })).toBeTruthy()
+    expect(headline(hard)).toContain('of the hard requests')
+    for (const n of hard.notes ?? []) expect(screen.getByText(n)).toBeTruthy()
+    await user.click(second!)
+    expect(new URLSearchParams(window.location.search).get('set')).toBe('easy')
+    expect(await screen.findByRole('heading', { level: 1, name: headline(easy)! })).toBeTruthy()
+  })
+
+  it('shows no set tabs when the API has one set', async () => {
+    installApi()
+    renderAt('/evaluation')
+    await screen.findByRole('heading', { name: 'Per request' })
+    expect(screen.queryByRole('tablist', { name: 'Request set' })).toBeNull()
   })
 })

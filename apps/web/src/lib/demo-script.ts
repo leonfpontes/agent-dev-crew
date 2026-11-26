@@ -46,7 +46,9 @@ export function numberCaption(sets: ScoreSet[]): string {
   const n = lead ? setNumbers(lead) : null
   if (!n) return 'Run pnpm eval to measure the crew against one agent.'
   const label = SET_LABEL[n.set].charAt(0).toUpperCase() + SET_LABEL[n.set].slice(1)
-  return `${label}: one agent ${n.oneAgent}%, crew ${n.crew}%. The crew costs ${n.costRatio} as much.`
+  return n.verdict === 'one'
+    ? `${label}: one agent ${n.oneAgent}%, crew ${n.crew}%, at ${n.oneCost} the cost.`
+    : `${label}: one agent ${n.oneAgent}%, crew ${n.crew}%. The crew costs ${n.costRatio} as much.`
 }
 
 export function hiddenCaption(run: RunDetail): string {

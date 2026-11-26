@@ -57,7 +57,16 @@ interface Data {
   versions: PlaybookVersion[]
 }
 
-function Frame({ title, children }: { title: string; children: ReactNode }) {
+function Frame({
+  title,
+  children,
+  example = true,
+}: {
+  title: string
+  children: ReactNode
+  /** The example run's scenes carry the tag; the measured numbers don't. */
+  example?: boolean
+}) {
   return (
     <div className="grid h-full grid-rows-[auto_1fr] overflow-hidden rounded-xl border bg-background">
       <div className="flex h-12 items-center gap-3 border-b px-5 text-[15px] font-semibold">
@@ -65,9 +74,11 @@ function Frame({ title, children }: { title: string; children: ReactNode }) {
         Agent Dev Crew
         <span className="text-text-subtle">/</span>
         <span className="font-normal text-muted-foreground">{title}</span>
-        <span className="ml-auto rounded-sm border border-dashed border-warning bg-warning-subtle px-2 text-[13px] leading-5 font-medium text-warning">
-          example run
-        </span>
+        {example && (
+          <span className="ml-auto rounded-sm border border-dashed border-warning bg-warning-subtle px-2 text-[13px] leading-5 font-medium text-warning">
+            example run
+          </span>
+        )}
       </div>
       <div className="overflow-hidden p-5">{children}</div>
     </div>
@@ -290,13 +301,18 @@ function Retro({ p, data }: { p: number; data: Data }) {
 function NumberScene() {
   const sets = scoreSets()
   const lead = leadSet(sets)
-  if (!lead) return <Frame title="Evaluation">{null}</Frame>
+  if (!lead)
+    return (
+      <Frame title="Evaluation" example={false}>
+        {null}
+      </Frame>
+    )
   const stats = VARIANTS.map((v) => lead.main.find((m) => m.variant === v)).filter((m) => !!m)
   const top = Math.max(...stats.map((m) => m.passRate.mean))
   const digits = stats.some((m) => m.costUsdPerRequest.mean < 0.01) ? 4 : 3
   const others = sets.slice(1)
   return (
-    <Frame title={`Evaluation · ${SET_LABEL[lead.set]}`}>
+    <Frame title={`Evaluation · ${SET_LABEL[lead.set]}`} example={false}>
       <p className="text-[15px] text-muted-foreground">
         {lead.requests} feature requests with hidden tests × {stats.length} variants × {lead.rounds} rounds ·{' '}
         {lead.model}

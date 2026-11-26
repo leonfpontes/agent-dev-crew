@@ -50,9 +50,16 @@ describe('How it works', () => {
     // every scoreboard, the hard set first, with its notes
     const sets = scoreSets()
     const tables = screen.getAllByRole('region', { name: /^Evaluation, (hard|easy) set, by variant$/ })
-    expect(tables).toHaveLength(sets.length)
+    // the lead set (hard) here, with its notes; the other set is one link away
+    expect(tables).toHaveLength(1)
     expect(tables[0]!.getAttribute('aria-label')).toBe(`Evaluation, ${sets[0]!.set} set, by variant`)
-    for (const s of sets) for (const n of s.notes) expect(screen.getByText(`Note: ${n}`)).toBeTruthy()
+    for (const n of sets[0]!.notes) expect(screen.getByText(`Note: ${n}`)).toBeTruthy()
+    for (const o of sets.slice(1))
+      expect(
+        screen
+          .getByRole('link', { name: new RegExp(`^${o.set === 'easy' ? 'Easy' : 'Hard'} set`) })
+          .getAttribute('href'),
+      ).toBe(`/evaluation?set=${o.set}`)
     expect(screen.getByRole('link', { name: /Full scoreboard/ }).getAttribute('href')).toBe('/evaluation')
     expect(screen.getByRole('heading', { name: 'The demo in three commands, without a key' })).toBeTruthy()
     expect(screen.getByText(/stopped at \$0\.25/)).toBeTruthy()

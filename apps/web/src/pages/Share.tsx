@@ -78,8 +78,7 @@ function Art({
                 <b className="font-mono font-medium text-foreground">{n.costRatio}</b> the cost
               </p>
               <p className="mt-1 text-[15px]">
-                {SET_LABEL[n.set]} · requests passing all hidden tests · {n.requests} requests × {n.rounds}{' '}
-                rounds
+                {SET_LABEL[n.set]} · {n.requests} requests × {n.rounds} rounds
               </p>
             </div>
           )}

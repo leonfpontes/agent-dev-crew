@@ -133,7 +133,9 @@ export function scoreboardBlock(boards: Scoreboard[]): string {
       ...sentences(b).flatMap((s) => [s, '']),
       ...table(r),
       '',
-      ...((r as Results & { notes?: string[] }).notes?.flatMap((n) => [`> Note: ${n}`, '']) ?? []),
+      ...((r as Results & { notes?: string[] }).notes?.length
+        ? [...(r as Results & { notes?: string[] }).notes!.map((n) => `- Note: ${n}`), '']
+        : []),
       `${r.model} (fallback ${r.fallbackModel ?? 'none'}) · ${r.requests} requests × ${r.main.length} variants × ${r.rounds} rounds · run ${r.runAt.slice(0, 10)} · mean ± standard deviation across rounds · [full results](${b.file.replace(/\.json$/, '.md')})`,
       '',
     )

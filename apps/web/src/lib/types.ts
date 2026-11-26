@@ -26,6 +26,8 @@ export interface Meta {
   exampleData: boolean
   replaySpeeds: number[]
   live: { available: boolean; how?: string }
+  /** The request sets /api/evaluation has a scoreboard for. */
+  evaluationSets?: ('easy' | 'hard')[]
 }
 
 export interface RunListRow {
@@ -212,6 +214,10 @@ export interface MatrixRow {
 }
 
 export interface EvaluationResponse {
+  /** The request set of this scoreboard (GET /api/evaluation?set=easy|hard). */
+  set?: 'easy' | 'hard'
+  /** Notes the evaluation wrote about this scoreboard (what is missing, and why). */
+  notes?: string[]
   exampleData: boolean
   main: VariantStats[]
   learningCurve: { points: CurvePoint[]; variants: VariantStats[] }

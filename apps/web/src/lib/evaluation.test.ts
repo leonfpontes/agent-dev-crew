@@ -60,7 +60,7 @@ describe('the headline follows the numbers, whichever way they fall', () => {
   })
   it('one agent ahead', () => {
     expect(headline(data([stat('single-agent', 0.9, 5_000), stat('crew', 0.5, 15_000)]))).toBe(
-      'One agent passes all hidden tests on 90% of the requests vs 50% for the crew, which costs 3× as much.',
+      'One agent passes all hidden tests on 90% of the requests vs 50% for the crew, at a third of the cost.',
     )
   })
   it('nothing to compare', () => {

@@ -90,7 +90,7 @@ The whole evaluation, 96 runs, cost $4.90 under a hard $5.52 cap.
 | Crew, no playbook   |          88% ± 0 |          $0.0529 |            252 s |                  0.04 |
 | Crew + playbook v12 |          83% ± 7 |          $0.0640 |            312 s |                  0.04 |
 
-> Note: The budget ran out before the first playbook version's second and third curve rounds: the retro kept learning for all three epochs (v1 to v12), which cost more than planned, and the ablation came first. v1, v4 and v7 are one-round points.
+- Note: The budget ran out before the first playbook version's second and third curve rounds: the retro kept learning for all three epochs (v1 to v12), which cost more than planned, and the ablation came first. v1, v4 and v7 are one-round points.
 
 claude-haiku-5-5 (fallback claude-haiku-4-5-20251001) · 8 requests × 3 variants × 3 rounds · run 2026-11-26 · mean ± standard deviation across rounds · [full results](evals/results/hard.md)
 
@@ -110,7 +110,7 @@ The whole evaluation, 100 runs, cost $1.29 under a hard $4.90 cap.
 | Crew, no playbook  |         100% ± 0 |          $0.0166 |             72 s |                  0.07 |
 | Crew + playbook v1 |          97% ± 6 |          $0.0159 |             69 s |                  0.00 |
 
-> Note: The one failure of the crew with the playbook (fix-rounding, round 1) came from a bug in the engine, fixed after this run: the PO's answer ran out of output tokens before it called submit_plan, and the engine ended the step instead of asking it to act. The easy set was not run again after the fix.
+- Note: The one failure of the crew with the playbook (fix-rounding, round 1) came from a bug in the engine, fixed after this run: the PO's answer ran out of output tokens before it called submit_plan, and the engine ended the step instead of asking it to act. The easy set was not run again after the fix.
 
 claude-haiku-5-5 (fallback claude-haiku-4-5-20251001) · 10 requests × 3 variants × 3 rounds · run 2026-11-26 · mean ± standard deviation across rounds · [full results](evals/results/latest.md)
 

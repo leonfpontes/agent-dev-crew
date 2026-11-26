@@ -1,7 +1,7 @@
 // The scoreboards in evals/results/ (one per request set), read when the app is built. The public
 // page, the share images and the video quote them; the hard set leads, because it is the stronger
 // test. Only the fields the pages use are imported, so the run rows stay out of the bundle.
-import { times } from './evaluation'
+import { compareSentence, costShare, times, verdict, type Verdict } from './evaluation'
 import type { Variant } from './types'
 
 export type RequestSet = 'easy' | 'hard'
@@ -85,6 +85,9 @@ export interface SetNumbers {
   crew: number
   crewLabel: string
   costRatio: string
+  /** Who did better, by the ± rule; with "one", oneCost says "half" (at half the cost). */
+  verdict: Verdict
+  oneCost: string
 }
 
 /** One agent against the best crew variant of a set, in whole percents of requests passing. */
@@ -102,29 +105,27 @@ export function setNumbers(s: ScoreSet): SetNumbers | null {
     costRatio: one.costUsdPerRequest.mean
       ? times(crew.costUsdPerRequest.mean / one.costUsdPerRequest.mean)
       : '—',
+    verdict: verdict(one.passRate, crew.passRate),
+    oneCost: crew.costUsdPerRequest.mean
+      ? costShare(one.costUsdPerRequest.mean / crew.costUsdPerRequest.mean)
+      : '—',
   }
 }
 
-/**
- * The set's sentence: one agent against the best crew variant. A gap no larger than the two ±
- * together is a tie, and the sentence gives the cost ratio.
- */
+/** The set's sentence: one agent against the best crew variant (see compareSentence). */
 export function setHeadline(s: ScoreSet): string | null {
   const one = by(s, 'single-agent')
   const crew = bestCrewOf(s)
   if (!one || !crew) return null
-  const who = crew.variant === 'crew-playbook' ? 'the crew with the playbook' : 'the crew'
-  const pct = (x: number) => `${Math.round(x * 100)}%`
-  const ratio = times(crew.costUsdPerRequest.mean / one.costUsdPerRequest.mean)
-  const on = s.set === 'hard' ? 'On the hard set' : 'On the easy set'
-  const gap = crew.passRate.mean - one.passRate.mean
-  if (Math.abs(gap) <= one.passRate.sd + crew.passRate.sd)
-    return pct(one.passRate.mean) === pct(crew.passRate.mean)
-      ? `${on}, one agent and ${who} both pass all hidden tests on ${pct(one.passRate.mean)} of the requests; the crew costs ${ratio} as much.`
-      : `${on}, one agent and ${who} pass all hidden tests on ${pct(one.passRate.mean)} and ${pct(crew.passRate.mean)} of the requests, a gap within the ±; the crew costs ${ratio} as much.`
-  if (gap > 0)
-    return `${on}, ${who} passes all hidden tests on ${pct(crew.passRate.mean)} of the requests vs ${pct(one.passRate.mean)} for one agent, at ${ratio} the cost.`
-  return `${on}, one agent passes all hidden tests on ${pct(one.passRate.mean)} of the requests vs ${pct(crew.passRate.mean)} for ${who}, which costs ${ratio} as much.`
+  return compareSentence(
+    { pass: one.passRate, cost: one.costUsdPerRequest.mean },
+    {
+      pass: crew.passRate,
+      cost: crew.costUsdPerRequest.mean,
+      who: crew.variant === 'crew-playbook' ? 'the crew with the playbook' : 'the crew',
+    },
+    s.set,
+  )
 }
 
 /** The set the share images and the video quote: the hard set when there is one. */
