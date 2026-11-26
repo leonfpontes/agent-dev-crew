@@ -95,11 +95,9 @@ describe('countTests', () => {
 
 describe('validateRequests', () => {
   it('proves each request is a fair test: hidden tests fail before, pass on the solution, visible tests stay green', () => {
-    const validation = validateRequests({
-      requestsDir,
-      exampleDir,
-      workDir: path.join(evalsDir, '../.crew/validate-requests-test'),
-    })
+    const workDir = path.join(evalsDir, '../.crew/validate-requests-test')
+    const validation = validateRequests({ requestsDir, exampleDir, workDir })
+    rmSync(workDir, { recursive: true, force: true })
     expect(validation.problems, formatValidation(validation)).toEqual([])
     expect(validation.results).toHaveLength(10)
     for (const r of validation.results) {
