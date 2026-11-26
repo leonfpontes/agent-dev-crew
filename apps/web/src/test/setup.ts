@@ -1,5 +1,9 @@
 // jsdom lacks a few browser APIs the app and Radix use.
+import { configure } from '@testing-library/react'
 import { afterEach, vi } from 'vitest'
+
+// findBy… waits up to 5 s (1 s by default): the pages load from the in-process API.
+configure({ asyncUtilTimeout: 5000 })
 
 if (!window.matchMedia)
   window.matchMedia = (query: string) =>

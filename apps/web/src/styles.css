@@ -94,6 +94,13 @@
     font-size: 13px;
     padding-right: 16px;
   }
+  .crew-l-wrap {
+    grid-template-columns: 44px 16px minmax(0, 1fr);
+  }
+  .crew-l-wrap code {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
   .crew-ln {
     color: var(--text-subtle);
     text-align: right;

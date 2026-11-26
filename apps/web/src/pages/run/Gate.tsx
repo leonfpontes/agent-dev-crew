@@ -14,14 +14,15 @@ import { PlanBody } from './StepPanel'
 export function GateCard({
   runId,
   plan,
-  waitingMin,
+  waiting,
   budgetLeft,
   revision,
   onDecided,
 }: {
   runId: number
   plan: Plan | null
-  waitingMin: number
+  /** How long the gate has waited, as the header strip says it ("2m 31s"). */
+  waiting: string
   budgetLeft: number
   /** Earlier plan versions and the comments that sent them back. */
   revision: { comment: string | null }[]
@@ -76,7 +77,7 @@ export function GateCard({
           </h2>
           <Badge className="bg-crew-subtle text-crew">
             <Icon name="gate" size={12} />
-            Waiting for you · {waitingMin} min
+            Waiting for you · {waiting}
           </Badge>
         </div>
         <div className="grid gap-4 px-5 pt-4 pb-5 max-[760px]:px-4">
@@ -166,7 +167,7 @@ export function GateCard({
                 <Icon name={error.status === 405 ? 'info' : 'failed'} />
                 <AlertTitle>
                   {error.status === 405
-                    ? 'Replay mode: the gate stays as recorded'
+                    ? 'Replay mode: the gate stays as in the example'
                     : "The decision didn't go through"}
                 </AlertTitle>
                 <AlertDescription>

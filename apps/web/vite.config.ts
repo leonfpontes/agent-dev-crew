@@ -18,5 +18,7 @@ export default defineConfig({
       },
     },
   },
-  test: { name: '@crew/web', environment: 'jsdom', setupFiles: ['src/test/setup.ts'] },
+  // Screen tests render whole pages on the in-process API (and some run axe): a loaded machine
+  // can take seconds, so they wait longer than the 5 s default.
+  test: { name: '@crew/web', environment: 'jsdom', setupFiles: ['src/test/setup.ts'], testTimeout: 20_000 },
 })

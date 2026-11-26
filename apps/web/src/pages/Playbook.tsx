@@ -234,7 +234,7 @@ function Proposal({
               <span className="text-success">+{count(lines, 'add')}</span>
               {count(lines, 'del') > 0 && <span className="text-destructive">−{count(lines, 'del')}</span>}
             </div>
-            <DiffLines lines={lines} label="Diff of playbook.md" />
+            <DiffLines lines={lines} label="Diff of playbook.md" wrap />
           </div>
           {dropped.map((l) => (
             <p key={l.id} className="text-[13px] text-muted-foreground">
@@ -290,7 +290,7 @@ function Proposal({
                 <Icon name={error.status === 405 ? 'info' : 'failed'} />
                 <AlertTitle>
                   {error.status === 405
-                    ? 'Replay mode: the playbook stays as recorded'
+                    ? 'Replay mode: the playbook stays as in the example'
                     : "The decision didn't go through"}
                 </AlertTitle>
                 <AlertDescription>

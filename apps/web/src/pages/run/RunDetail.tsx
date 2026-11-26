@@ -473,10 +473,7 @@ export function RunDetailPage({ id, meta }: { id: number; meta: Meta }) {
             <GateCard
               runId={run.id}
               plan={plan}
-              waitingMin={Math.max(
-                0,
-                Math.round((now - new Date(run.started_at).getTime() - (gateStep.offset_ms ?? 0)) / 60_000),
-              )}
+              waiting={clock(gateWait)}
               budgetLeft={run.budget_micros - spent}
               revision={steps
                 .filter((s) => s.kind === 'gate' && s.status === 'changes-requested')

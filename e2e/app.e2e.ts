@@ -82,7 +82,7 @@ test('in replay, the gate answers with how to run live (the API refuses the writ
 }) => {
   await page.goto('/runs/143')
   await page.getByRole('button', { name: /Approve plan/ }).click()
-  await expect(page.getByText('Replay mode: the gate stays as recorded')).toBeVisible()
+  await expect(page.getByText('Replay mode: the gate stays as in the example')).toBeVisible()
 })
 
 test('on a phone, the run has section tabs and the step opens in a sheet', async ({ page }) => {

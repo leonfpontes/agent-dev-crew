@@ -152,7 +152,7 @@ describe('Run detail · the human gate', () => {
     const user = userEvent.setup()
     renderAt('/runs/143')
     await user.click(await screen.findByRole('button', { name: /Approve plan/ }))
-    expect(await screen.findByText('Replay mode: the gate stays as recorded')).toBeTruthy()
+    expect(await screen.findByText('Replay mode: the gate stays as in the example')).toBeTruthy()
     expect(screen.getByText('The demo replays example runs and changes nothing.')).toBeTruthy()
     expect(calls.find((c) => c.method === 'POST')).toEqual({
       method: 'POST',

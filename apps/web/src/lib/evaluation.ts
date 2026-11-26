@@ -10,29 +10,43 @@ export function times(ratio: number): string {
   return `${Number.isInteger(r) ? r.toFixed(0) : r.toFixed(1)}×`
 }
 
+/** The crew variant with the most requests passing (the cheaper one on a tie). */
+export function bestCrew(stats: VariantStats[]): VariantStats | undefined {
+  return stats
+    .filter((s) => s.variant !== 'single-agent')
+    .sort(
+      (a, b) =>
+        b.passRate.mean - a.passRate.mean || a.costMicrosPerRequest.mean - b.costMicrosPerRequest.mean,
+    )[0]
+}
+
 /**
- * The headline sentence, written from the numbers whichever way they fall: the crew ahead, a tie,
- * or one agent ahead. Null when the scoreboard lacks one of the two variants it compares.
+ * The headline sentence, written from the numbers whichever way they fall. It compares one agent
+ * with the best crew variant; a gap no larger than the two ± together is a tie, by the page's own
+ * rule, and the sentence then gives the cost ratio. Null when one of the two is missing.
  */
 export function headline(data: EvaluationResponse): string | null {
   const one = byVariant(data.main, 'single-agent')
-  const crew = byVariant(data.main, 'crew-playbook') ?? byVariant(data.main, 'crew')
+  const crew = bestCrew(data.main)
   if (!one || !crew) return null
   const who = crew.variant === 'crew-playbook' ? 'the crew with the playbook' : 'the crew'
+  const Who = who.charAt(0).toUpperCase() + who.slice(1)
   const pct = (x: number) => `${Math.round(x * 100)}%`
-  const a = Math.round(one.passRate.mean * 100)
-  const b = Math.round(crew.passRate.mean * 100)
   const ratio = one.costMicrosPerRequest.mean
     ? crew.costMicrosPerRequest.mean / one.costMicrosPerRequest.mean
     : 0
-  const Who = who.charAt(0).toUpperCase() + who.slice(1)
-  const as = ratio ? `${times(ratio)} as much` : ''
+  const gap = crew.passRate.mean - one.passRate.mean
   // passRate is the share of requests whose hidden tests all passed.
-  if (b > a)
-    return `${Who} passes the hidden tests on ${pct(crew.passRate.mean)} of the requests vs ${pct(one.passRate.mean)} for one agent${ratio ? `, at ${times(ratio)} the cost` : ''}.`
-  if (b === a)
-    return `One agent and ${who} both pass the hidden tests on ${pct(one.passRate.mean)} of the requests${as ? `; the crew costs ${as}` : ''}.`
-  return `One agent passes the hidden tests on ${pct(one.passRate.mean)} of the requests vs ${pct(crew.passRate.mean)} for ${who}${as ? `, which costs ${as}` : ''}.`
+  if (Math.abs(gap) <= one.passRate.sd + crew.passRate.sd) {
+    const shares =
+      pct(one.passRate.mean) === pct(crew.passRate.mean)
+        ? `both pass all hidden tests on ${pct(one.passRate.mean)} of the requests`
+        : `pass all hidden tests on ${pct(one.passRate.mean)} and ${pct(crew.passRate.mean)} of the requests, a gap within the ±`
+    return `One agent and ${who} ${shares}${ratio ? `; the crew costs ${times(ratio)} as much` : ''}.`
+  }
+  if (gap > 0)
+    return `${Who} passes all hidden tests on ${pct(crew.passRate.mean)} of the requests vs ${pct(one.passRate.mean)} for one agent${ratio ? `, at ${times(ratio)} the cost` : ''}.`
+  return `One agent passes all hidden tests on ${pct(one.passRate.mean)} of the requests vs ${pct(crew.passRate.mean)} for ${who}${ratio ? `, which costs ${times(ratio)} as much` : ''}.`
 }
 
 /** Digits for a set of costs per request: 4 when one is under a cent, so $0.0054 doesn't read $0.005. */
@@ -82,18 +96,22 @@ export function sortRows(rows: MatrixRow[], key: SortKey): MatrixRow[] {
   return indexed.sort((a, b) => score[key](a) - score[key](b)).map((x) => x.row)
 }
 
-/** Which variant has the best value of a metric: the highest share passing, the lowest of the rest. */
+/**
+ * The variants with the best value of a metric (the highest share passing, the lowest of the rest).
+ * On a tie every best variant gets the check; when all share the value, none does.
+ */
 export function bestOf(
   stats: VariantStats[],
   pick: (s: VariantStats) => number | null,
   higher = false,
-): Variant | null {
+): Variant[] {
   const values = stats
     .map((s) => ({ v: s.variant, x: pick(s) }))
     .filter((e): e is { v: Variant; x: number } => e.x !== null)
-  if (values.length < 2) return null
-  const best = values.reduce((a, b) => ((higher ? b.x > a.x : b.x < a.x) ? b : a))
-  return values.filter((e) => e.x === best.x).length > 1 ? null : best.v
+  if (values.length < 2) return []
+  const best = values.reduce((a, b) => ((higher ? b.x > a.x : b.x < a.x) ? b : a)).x
+  const winners = values.filter((e) => Math.abs(e.x - best) < 1e-9).map((e) => e.v)
+  return winners.length === values.length ? [] : winners
 }
 
 /** A round step for an axis that covers `max`: 0.06 for 0.046, 0.3 for 0.21. */

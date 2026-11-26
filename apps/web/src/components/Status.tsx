@@ -90,7 +90,7 @@ export function Status({
     <span
       data-status={visual}
       className={cn(
-        'inline-flex items-center gap-1.5 text-[13px] leading-none font-medium whitespace-nowrap',
+        'inline-flex items-center gap-1.5 align-middle text-[13px] leading-none font-medium whitespace-nowrap',
         v.tone,
         className,
       )}

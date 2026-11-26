@@ -1,7 +1,7 @@
 // Evaluation: the headline, the learning curve per playbook version, cost × quality, all metrics
 // with a check on the best value, and the request × variant matrix with one mark per round.
 // Every number comes from /api/evaluation; until a real run exists the band marks them as examples.
-import { useState, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 
 import {
   Button,
@@ -66,11 +66,13 @@ function ChartCard({
   title,
   lead,
   children,
+  frame,
 }: {
   id: string
   title: string
   lead: string
   children: ReactNode
+  frame: RefObject<HTMLDivElement | null>
 }) {
   return (
     <section aria-labelledby={id} className={card}>
@@ -80,13 +82,36 @@ function ChartCard({
         </h2>
         <p className="text-sm text-muted-foreground">{lead}</p>
       </div>
-      <div className="px-5 pt-4 pb-5 max-[760px]:px-4">{children}</div>
+      <div ref={frame} className="px-5 pt-4 pb-5 max-[760px]:px-4">
+        {children}
+      </div>
     </section>
   )
 }
 
 /** Lowercase the first letter, not an acronym: "Read before write" → "read…", "PO lists" stays. */
 const lower = (t: string) => (/^[A-Z][a-z]/.test(t) ? t.charAt(0).toLowerCase() + t.slice(1) : t)
+
+/**
+ * The drawing frame of a chart. From 640 px up the 600-unit viewBox scales with the card; below,
+ * the viewBox takes the card's real width, so the 12 px labels stay 12 px on a phone.
+ */
+function useChartFrame() {
+  const ref = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(600)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const set = () => setWidth(el.clientWidth || 600)
+    set()
+    const ro = new ResizeObserver(set)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  const narrow = width > 0 && width < 640
+  const W = narrow ? Math.round(width) : 600
+  return { ref, W, L: narrow ? 40 : 60, R: narrow ? W - 8 : 580, narrow }
+}
 
 const Y0 = 200
 const Y1 = 20
@@ -99,7 +124,8 @@ function LearningCurve({ data, versions }: { data: EvaluationResponse; versions:
     ...versions.filter((v) => v.status === 'approved').map((v) => v.version),
     1,
   )
-  const x = (v: number) => (maxV === 1 ? 320 : 80 + ((v - 1) * 480) / (maxV - 1))
+  const { ref, W, L, R, narrow } = useChartFrame()
+  const x = (v: number) => (maxV === 1 ? (L + R) / 2 : L + 20 + ((v - 1) * (R - L - 40)) / (maxV - 1))
   const title = (v: number) =>
     versions.find((p) => p.version === v)?.title ?? (v === 1 ? 'Initial playbook' : `v${v}`)
   const baselines = (['single-agent', 'crew'] as const)
@@ -130,12 +156,13 @@ function LearningCurve({ data, versions }: { data: EvaluationResponse; versions:
 
   return (
     <ChartCard
+      frame={ref}
       id="lc-h"
       title="Learning curve · does the retro make the crew better?"
       lead="Requests that pass all their hidden tests, for the crew, per playbook version that changed a rule"
     >
       <svg
-        viewBox="0 0 600 236"
+        viewBox={`0 0 ${W} 236`}
         role="img"
         aria-labelledby="lc-h"
         aria-describedby="lc-t"
@@ -143,25 +170,25 @@ function LearningCurve({ data, versions }: { data: EvaluationResponse; versions:
       >
         <g className="stroke-border">
           {[Y1, (Y0 + Y1) / 2, Y0].map((yy) => (
-            <line key={yy} x1="60" x2="580" y1={yy} y2={yy} />
+            <line key={yy} x1={L} x2={R} y1={yy} y2={yy} />
           ))}
         </g>
         <g className="fill-muted-foreground">
-          <text x="50" y={Y1 + 4} textAnchor="end">
+          <text x={L - 10} y={Y1 + 4} textAnchor="end">
             100%
           </text>
-          <text x="50" y={(Y0 + Y1) / 2 + 4} textAnchor="end">
+          <text x={L - 10} y={(Y0 + Y1) / 2 + 4} textAnchor="end">
             50%
           </text>
-          <text x="50" y={Y0 + 4} textAnchor="end">
+          <text x={L - 10} y={Y0 + 4} textAnchor="end">
             0%
           </text>
         </g>
         {baselines.map(({ v, s }) => (
           <g key={v}>
             <rect
-              x="60"
-              width="520"
+              x={L}
+              width={R - L}
               y={y(Math.min(1, s.passRate.mean + s.passRate.sd))}
               height={Math.max(
                 0,
@@ -171,8 +198,8 @@ function LearningCurve({ data, versions }: { data: EvaluationResponse; versions:
               className={cn('opacity-14', v === 'single-agent' ? 'fill-chart-5' : 'fill-chart-1')}
             />
             <line
-              x1="60"
-              x2="580"
+              x1={L}
+              x2={R}
               y1={y(s.passRate.mean)}
               y2={y(s.passRate.mean)}
               strokeWidth="1.5"
@@ -181,7 +208,7 @@ function LearningCurve({ data, versions }: { data: EvaluationResponse; versions:
             />
           </g>
         ))}
-        <g className="fill-muted-foreground">
+        <g className="fill-muted-foreground" display={narrow ? 'none' : undefined}>
           {baseLabels.map((b) => {
             // Right-aligned, unless a point of the curve sits under the text; then left-aligned, then lower.
             const w = labelWidth(b.text) * 1.15
@@ -193,10 +220,10 @@ function LearningCurve({ data, versions }: { data: EvaluationResponse; versions:
                   Math.abs(y(p.passRate.mean) - (yy - 4)) < 14,
               )
             let yy = b.y
-            while (covers(576 - w, 576, yy) && covers(64, 64 + w, yy) && yy < Y0 - 4) yy += 14
-            const left = covers(576 - w, 576, yy) && !covers(64, 64 + w, yy)
+            while (covers(R - 4 - w, R - 4, yy) && covers(L + 4, L + 4 + w, yy) && yy < Y0 - 4) yy += 14
+            const left = covers(R - 4 - w, R - 4, yy) && !covers(L + 4, L + 4 + w, yy)
             return (
-              <text key={b.text} x={left ? 64 : 576} y={yy} textAnchor={left ? 'start' : 'end'}>
+              <text key={b.text} x={left ? L + 4 : R - 4} y={yy} textAnchor={left ? 'start' : 'end'}>
                 {b.text}
               </text>
             )
@@ -295,6 +322,13 @@ function LearningCurve({ data, versions }: { data: EvaluationResponse; versions:
           </tbody>
         </table>
       </div>
+      {narrow && baseLabels.length > 0 && (
+        <ul aria-hidden="true" className="mt-2 grid gap-1 text-xs text-muted-foreground">
+          {baseLabels.map((b) => (
+            <li key={b.text}>Dashed line: {b.text}</li>
+          ))}
+        </ul>
+      )}
       <ol className="mt-2.5 grid gap-0.5 text-[13px]">
         {points.map((p) => (
           <li
@@ -351,7 +385,8 @@ function CostQuality({ data }: { data: EvaluationResponse }) {
   const maxUsd = niceMax(
     Math.max(...stats.map((s) => (s.costMicrosPerRequest.mean + s.costMicrosPerRequest.sd) / 1e6)) * 1.15,
   )
-  const x = (usdValue: number) => 60 + (usdValue / maxUsd) * 500
+  const { ref, W, L, R, narrow } = useChartFrame()
+  const x = (usdValue: number) => L + (usdValue / maxUsd) * (R - L - 20)
   const order = [...stats].sort(
     (a, b) => a.passRate.mean - b.passRate.mean || a.costMicrosPerRequest.mean - b.costMicrosPerRequest.mean,
   )
@@ -362,20 +397,23 @@ function CostQuality({ data }: { data: EvaluationResponse }) {
       `${VARIANT_LABEL[s.variant]} · ${percent(s.passRate.mean)} · ${money(s.costMicrosPerRequest.mean)}`,
   )
   // The best quality first, so it gets the place above its mark.
-  const placed = placeLabelsFor(order, labels, (s) => ({
-    x: x(s.costMicrosPerRequest.mean / 1e6),
-    y: y(s.passRate.mean),
-  }))
+  const placed = placeLabelsFor(
+    order,
+    labels,
+    (s) => ({ x: x(s.costMicrosPerRequest.mean / 1e6), y: y(s.passRate.mean) }),
+    { left: L, right: R, top: 12, bottom: 232 },
+  )
   const text = (s: VariantStats) =>
     `${VARIANT_LABEL[s.variant]}: ${money(s.costMicrosPerRequest.mean)} ± ${(s.costMicrosPerRequest.sd / 1e6).toFixed(digits)} per request, ${percent(s.passRate.mean)} ${sdPoints(s.passRate.sd)} passing`
   return (
     <ChartCard
+      frame={ref}
       id="cq-h"
       title="Cost × quality · where is the best trade?"
       lead="One mark per variant, with ± one standard deviation on both axes · up and left is better"
     >
       <svg
-        viewBox="0 0 600 252"
+        viewBox={`0 0 ${W} 252`}
         role="img"
         aria-labelledby="cq-h"
         aria-describedby="cq-t"
@@ -383,17 +421,17 @@ function CostQuality({ data }: { data: EvaluationResponse }) {
       >
         <g className="stroke-border">
           {[Y1, (Y0 + Y1) / 2, Y0].map((yy) => (
-            <line key={yy} x1="60" x2="580" y1={yy} y2={yy} />
+            <line key={yy} x1={L} x2={R} y1={yy} y2={yy} />
           ))}
         </g>
         <g className="fill-muted-foreground">
-          <text x="50" y={Y1 + 4} textAnchor="end">
+          <text x={L - 10} y={Y1 + 4} textAnchor="end">
             100%
           </text>
-          <text x="50" y={(Y0 + Y1) / 2 + 4} textAnchor="end">
+          <text x={L - 10} y={(Y0 + Y1) / 2 + 4} textAnchor="end">
             50%
           </text>
-          <text x="50" y={Y0 + 4} textAnchor="end">
+          <text x={L - 10} y={Y0 + 4} textAnchor="end">
             0%
           </text>
           {[0, maxUsd / 2, maxUsd].map((v) => (
@@ -401,7 +439,7 @@ function CostQuality({ data }: { data: EvaluationResponse }) {
               {tick(v)}
             </text>
           ))}
-          <text x="310" y="244" textAnchor="middle" className="font-sans">
+          <text x={(L + R) / 2} y="244" textAnchor="middle" className="font-sans">
             Cost per request ($)
           </text>
         </g>
@@ -446,7 +484,7 @@ function CostQuality({ data }: { data: EvaluationResponse }) {
             </g>
           )
         })}
-        <g className="fill-foreground font-sans">
+        <g className="fill-foreground font-sans" display={narrow ? 'none' : undefined}>
           {placed.map((p, i) => (
             <text key={order[i]!.variant} x={p.x} y={p.y} textAnchor={p.anchor}>
               {labels[i]}
@@ -479,6 +517,18 @@ function CostQuality({ data }: { data: EvaluationResponse }) {
           </tbody>
         </table>
       </div>
+      {narrow && (
+        <ul aria-hidden="true" className="mt-2 grid gap-1 text-[13px]">
+          {stats.map((s) => (
+            <li key={s.variant} className="flex items-center gap-2">
+              <svg width="14" height="14" viewBox="0 0 14 14" className={MARKS[s.variant].cls}>
+                {MARKS[s.variant].shape(7, 7)}
+              </svg>
+              {VARIANT_LABEL[s.variant]} · {percent(s.passRate.mean)} · {money(s.costMicrosPerRequest.mean)}
+            </li>
+          ))}
+        </ul>
+      )}
       <p className="mt-2.5 text-xs/[1.6] text-muted-foreground">
         Marks differ in shape: circle for one agent, square for the crew, triangle for the crew with the
         playbook.
@@ -488,9 +538,17 @@ function CostQuality({ data }: { data: EvaluationResponse }) {
 }
 
 /** Labels for the marks, placed from the highest mark down; returned in the marks' order. */
-function placeLabelsFor<T>(items: T[], texts: string[], at: (item: T) => { x: number; y: number }) {
+function placeLabelsFor<T>(
+  items: T[],
+  texts: string[],
+  at: (item: T) => { x: number; y: number },
+  plot: Parameters<typeof placeLabels>[1],
+) {
   const idx = items.map((_, i) => i).sort((a, b) => at(items[a]!).y - at(items[b]!).y)
-  const out = placeLabels(idx.map((i) => ({ ...at(items[i]!), text: texts[i]! })))
+  const out = placeLabels(
+    idx.map((i) => ({ ...at(items[i]!), text: texts[i]! })),
+    plot,
+  )
   const back = new Array<(typeof out)[number]>(items.length)
   idx.forEach((i, k) => (back[i] = out[k]!))
   return back
@@ -505,7 +563,7 @@ function Metrics({ data }: { data: EvaluationResponse }) {
   const crewOnly = (s: VariantStats) => s.variant !== 'single-agent'
   const rows: {
     name: string
-    best: Variant | null
+    best: Variant[]
     cell: (s: VariantStats) => ReactNode
   }[] = [
     {
@@ -567,7 +625,7 @@ function Metrics({ data }: { data: EvaluationResponse }) {
     },
     {
       name: 'Gate interventions',
-      best: null,
+      best: [],
       cell: (s) =>
         crewOnly(s) ? (
           <>
@@ -618,7 +676,7 @@ function Metrics({ data }: { data: EvaluationResponse }) {
                   </TableHead>
                   {present.map((s) => (
                     <TableCell key={s.variant} className="text-right font-mono text-[13px] tabular-nums">
-                      {r.best === s.variant && (
+                      {r.best.includes(s.variant) && (
                         <span className="mr-1.5 inline-flex align-[-2px]">
                           <Status visual="passed" label={false} text="best" size={14} />
                         </span>
@@ -790,7 +848,8 @@ export function EvaluationPage({ meta }: { meta: Meta }) {
 
   const s = scope(data)
   const sentence = headline(data)
-  const lead = byVariant(data.main, 'crew-playbook') ?? byVariant(data.main, 'crew')
+  // The example for “±” is the widest spread on the page, so it never reads “± 0”.
+  const lead = [...data.main].sort((a, b) => b.passRate.sd - a.passRate.sd)[0]
   const limit = data.limitUsd ? data.limitUsd * 1e6 : null
   const items: { k: ReactNode; v: ReactNode; extra?: ReactNode }[] = [
     {

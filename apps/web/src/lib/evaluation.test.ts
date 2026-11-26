@@ -35,17 +35,12 @@ const data = (main: VariantStats[]): EvaluationResponse => ({
 })
 
 describe('the headline follows the numbers, whichever way they fall', () => {
-  it('crew ahead', () => {
+  it('crew ahead by more than the two ± together', () => {
     expect(headline(data([stat('single-agent', 0.4, 21_000), stat('crew-playbook', 0.7667, 43_000)]))).toBe(
-      'The crew with the playbook passes the hidden tests on 77% of the requests vs 40% for one agent, at 2× the cost.',
+      'The crew with the playbook passes all hidden tests on 77% of the requests vs 40% for one agent, at 2× the cost.',
     )
   })
-  it('a tie', () => {
-    expect(headline(data([stat('single-agent', 1, 5_450), stat('crew', 1, 16_639)]))).toBe(
-      'One agent and the crew both pass the hidden tests on 100% of the requests; the crew costs 3.1× as much.',
-    )
-  })
-  it('one agent ahead', () => {
+  it('compares one agent with the best crew variant, and calls an equal score a tie', () => {
     expect(
       headline(
         data([
@@ -55,7 +50,17 @@ describe('the headline follows the numbers, whichever way they fall', () => {
         ]),
       ),
     ).toBe(
-      'One agent passes the hidden tests on 100% of the requests vs 97% for the crew with the playbook, which costs 2.9× as much.',
+      'One agent and the crew both pass all hidden tests on 100% of the requests; the crew costs 3.1× as much.',
+    )
+  })
+  it('calls a gap within the ± a tie too', () => {
+    expect(headline(data([stat('single-agent', 1, 5_000), stat('crew-playbook', 0.95, 15_000)]))).toBe(
+      'One agent and the crew with the playbook pass all hidden tests on 100% and 95% of the requests, a gap within the ±; the crew costs 3× as much.',
+    )
+  })
+  it('one agent ahead', () => {
+    expect(headline(data([stat('single-agent', 0.9, 5_000), stat('crew', 0.5, 15_000)]))).toBe(
+      'One agent passes all hidden tests on 90% of the requests vs 50% for the crew, which costs 3× as much.',
     )
   })
   it('nothing to compare', () => {
@@ -76,12 +81,14 @@ describe('evaluation helpers', () => {
     expect(tick(0)).toBe('0.00')
   })
 
-  it('checks the best value only when one variant has it', () => {
+  it('checks every best value on a tie, and none when all share it', () => {
     const a = stat('single-agent', 1, 5_000)
     const b = stat('crew', 1, 16_000)
-    expect(bestOf([a, b], (s) => s.passRate.mean, true)).toBeNull()
-    expect(bestOf([a, b], (s) => s.costMicrosPerRequest.mean)).toBe('single-agent')
-    expect(bestOf([a], (s) => s.costMicrosPerRequest.mean)).toBeNull()
+    const c = stat('crew-playbook', 0.97, 15_000)
+    expect(bestOf([a, b, c], (s) => s.passRate.mean, true)).toEqual(['single-agent', 'crew'])
+    expect(bestOf([a, b], (s) => s.passRate.mean, true)).toEqual([])
+    expect(bestOf([a, b], (s) => s.costMicrosPerRequest.mean)).toEqual(['single-agent'])
+    expect(bestOf([a], (s) => s.costMicrosPerRequest.mean)).toEqual([])
   })
 
   it('sorts requests by disagreement, weakness and size', () => {

@@ -213,10 +213,13 @@ export function DiffLines({
   lines,
   label,
   className,
+  wrap = false,
 }: {
   lines: DiffLine[]
   label: string
   className?: string
+  /** Wrap long lines (the number stays in the gutter) instead of scrolling sideways. */
+  wrap?: boolean
 }) {
   return (
     <div
@@ -229,7 +232,7 @@ export function DiffLines({
       )}
     >
       {lines.map((l, i) => (
-        <span key={i} className={cn('crew-l', `crew-l-${l.type}`)}>
+        <span key={i} className={cn('crew-l', `crew-l-${l.type}`, wrap && 'crew-l-wrap')}>
           <span className="crew-ln">{l.n ?? ''}</span>
           <span className="crew-s">{l.type === 'add' ? '+' : l.type === 'del' ? '−' : ' '}</span>
           <code>{l.text}</code>

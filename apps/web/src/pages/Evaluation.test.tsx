@@ -27,6 +27,8 @@ describe('Evaluation', () => {
       expect(rows()).toHaveLength(data.matrix.length)
       expect(await axe(document.body)).toEqual([])
     },
+    // The whole page plus axe: about 1 s alone, several under a loaded machine.
+    20_000,
   )
 
   it('checks the best value of each metric, and only when one variant has it', async () => {

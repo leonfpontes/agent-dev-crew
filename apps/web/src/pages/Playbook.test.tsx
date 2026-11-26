@@ -60,7 +60,7 @@ describe('Playbook', () => {
     const user = userEvent.setup()
     renderAt('/playbook')
     await user.click(await screen.findByRole('button', { name: 'Approve as v8' }))
-    expect(await screen.findByText('Replay mode: the playbook stays as recorded')).toBeTruthy()
+    expect(await screen.findByText('Replay mode: the playbook stays as in the example')).toBeTruthy()
     expect(calls.find((c) => c.method === 'POST')).toEqual({
       method: 'POST',
       path: '/api/playbook/8',

@@ -477,8 +477,20 @@ export function RunsPage({ meta }: { meta: Meta }) {
             Keyboard: <Kbd>↑</Kbd> <Kbd>↓</Kbd> move between runs, <Kbd>Enter</Kbd> opens one.
           </p>
           <p className="mt-3 text-[13px] text-muted-foreground">
-            Showing {rows.length} of {all.length} runs
-            {live ? ' · live mode, on this machine.' : ' · replay mode replays them without calling a model.'}
+            Showing {rows.length} of {all.length}{' '}
+            {all.every((r) => r.origin === 'example') ? 'example runs' : 'runs'}
+            {live ? ' · live mode, on this machine' : ' · replay mode replays them without calling a model'}
+            {!meta.exampleData && (
+              <>
+                {' · the measured numbers are in '}
+                <Link
+                  href="/evaluation"
+                  className="inline-flex min-h-6 items-center text-primary underline underline-offset-[3px] max-[760px]:min-h-11"
+                >
+                  Evaluation
+                </Link>
+              </>
+            )}
           </p>
         </>
       )}

@@ -28,7 +28,7 @@ describe('Runs', () => {
     expect(strip.textContent).toMatch(/Runs8/)
     expect(strip.textContent).toContain('of 7 finished')
     expect(
-      screen.getByText('Showing 8 of 8 runs · replay mode replays them without calling a model.'),
+      screen.getByText('Showing 8 of 8 example runs · replay mode replays them without calling a model'),
     ).toBeTruthy()
     // status = shape + word: the over-budget run says so, the rejected run uses the gate's diamond with a cross
     const over = rows().find((r) => r.textContent?.includes('Rate-limit POST /orders'))!
@@ -36,6 +36,16 @@ describe('Runs', () => {
     const rejected = rows().find((r) => r.textContent?.includes('Export orders as CSV'))!
     expect(rejected.querySelector('[data-status="rejected"]')).not.toBeNull()
     expect(await axe(document.body)).toEqual([])
+  })
+
+  it('with the real scoreboard, says the runs are examples and points to the measured numbers', async () => {
+    installApi({ scoreboard: 'real' })
+    renderAt('/')
+    const footer = (await screen.findByText(/^Showing 8 of 8 example runs/)).closest('p')!
+    expect(footer.textContent).toBe(
+      'Showing 8 of 8 example runs · replay mode replays them without calling a model · the measured numbers are in Evaluation',
+    )
+    expect(within(footer).getByRole('link', { name: 'Evaluation' }).getAttribute('href')).toBe('/evaluation')
   })
 
   it('filters by status, variant and search, and says when nothing matches', async () => {
