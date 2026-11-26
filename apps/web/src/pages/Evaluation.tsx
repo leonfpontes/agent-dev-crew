@@ -56,8 +56,8 @@ import type { EvaluationResponse, Meta, PlaybookVersion, Variant, VariantStats }
 import { VARIANTS } from '../lib/types'
 import { VARIANT_LABEL } from './Runs'
 
-/** The command that produces the scoreboard (the evaluation story owns its flags). */
-export const EVAL_COMMAND = 'pnpm eval --rounds 3 --limit-usd 5'
+/** The command that produces the scoreboard (evals/src/eval-cli.ts: every request, variant and round, under its cap). */
+export const EVAL_COMMAND = 'pnpm eval'
 
 const card = 'rounded-xl border bg-card'
 
@@ -743,7 +743,7 @@ function Command({ data }: { data: EvaluationResponse }) {
       <CodeBlock title="Terminal" copyText={`$ ${EVAL_COMMAND}`}>
         {`$ ${EVAL_COMMAND}\n`}
         <span className="text-code-dim">
-          {`# ${s.requests} requests × ${s.variants} variants × ${s.rounds} rounds${data.model ? ` · ${data.model}` : ''} · hidden tests run in a sandbox\n# a logged policy approves the gate · results → evals/results/latest.json`}
+          {`# ${s.requests} requests × ${s.variants} variants × ${s.rounds} rounds, then the learning curve${data.model ? ` · ${data.model}` : ''}\n# hidden tests run in a sandbox · a logged policy approves the gate · results → evals/results/latest.json`}
         </span>
       </CodeBlock>
     </section>
