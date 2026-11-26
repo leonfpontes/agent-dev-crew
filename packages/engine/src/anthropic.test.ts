@@ -125,6 +125,7 @@ describe('createAnthropicProvider', () => {
         model: 'claude-haiku-5-5',
         stop_reason: 'tool_use',
         usage: expect.objectContaining({ input_tokens: 120 }),
+        content: ['text', 'tool_use'],
       },
     })
   })

@@ -85,12 +85,14 @@ interface Limits {
 
 /** Model calls per step (tool round trips included) and output tokens per call. */
 export const LIMITS: Record<Agent, Limits> = {
-  po: { maxTurns: 10, maxTokens: 4_000 },
-  engineer: { maxTurns: 24, maxTokens: 8_000 },
-  reviewer: { maxTurns: 10, maxTokens: 4_000 },
-  qa: { maxTurns: 16, maxTokens: 8_000 },
+  po: { maxTurns: 10, maxTokens: 8_000 },
+  // The model's own reasoning counts as output: with 4k (PO) and 8k (Engineer) some answers ran out
+  // before any tool call, so the planning roles get 8k and the ones that write files 16k.
+  engineer: { maxTurns: 24, maxTokens: 16_000 },
+  reviewer: { maxTurns: 10, maxTokens: 8_000 },
+  qa: { maxTurns: 16, maxTokens: 16_000 },
   // The single agent plans, codes and tests in one step: about the crew's turns put together.
-  solo: { maxTurns: 40, maxTokens: 8_000 },
+  solo: { maxTurns: 40, maxTokens: 16_000 },
 }
 
 const SECTIONS = { po: 'PO', engineer: 'Engineer', reviewer: 'Reviewer', qa: 'QA' } as const

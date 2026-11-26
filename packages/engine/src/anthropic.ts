@@ -141,7 +141,14 @@ export function fromApiResponse(body: ApiResponse): ModelResponse {
       cacheWriteTokens: body.usage.cache_creation_input_tokens ?? 0,
       outputTokens: body.usage.output_tokens,
     },
-    raw: { id: body.id ?? null, model: body.model, stop_reason: body.stop_reason, usage: body.usage },
+    raw: {
+      id: body.id ?? null,
+      model: body.model,
+      stop_reason: body.stop_reason,
+      usage: body.usage,
+      // Which blocks came back (text, tool_use, thinking…): what filled an answer cut at max_tokens.
+      content: body.content.map((b) => b.type),
+    },
   }
 }
 
