@@ -1,0 +1,112 @@
+import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+import { describe, expect, it } from 'vitest'
+
+import { countTests, loadRequests } from './requests.js'
+import { formatValidation, validateRequests } from './validate.js'
+
+const evalsDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const requestsDir = path.join(evalsDir, 'requests')
+const exampleDir = path.join(evalsDir, '../examples/fernhill-orders')
+
+describe('evals/requests', () => {
+  const { requests, problems } = loadRequests(requestsDir, exampleDir)
+
+  it('has 10 requests with their hidden tests and a reference solution, and nothing else', () => {
+    expect(problems).toEqual([])
+    expect(requests).toHaveLength(10)
+  })
+
+  it('has 3 to 7 hidden tests per request, 51 in all', () => {
+    expect(requests.map((r) => [r.id, r.hiddenTestCount])).toEqual([
+      ['cancel-order', 6],
+      ['paginate-orders', 5],
+      ['validate-sku', 4],
+      ['discount-codes', 7],
+      ['receipt-email', 3],
+      ['rate-limit-orders', 6],
+      ['export-csv', 5],
+      ['fix-rounding', 4],
+      ['partial-refund', 6],
+      ['search-orders', 5],
+    ])
+  })
+
+  it('writes every request in English for a made-up store, through its HTTP API', () => {
+    for (const r of requests) {
+      expect(r.request, r.id).toMatch(/^[\x20-\x7E]+$/)
+      expect(r.request, r.id).toMatch(/\b(order|cart)/i)
+    }
+  })
+
+  it('keeps the hidden tests away from the example repository the agents work on', () => {
+    const files = (dir: string): string[] =>
+      readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+        e.isDirectory() ? files(path.join(dir, e.name)) : [path.join(dir, e.name)],
+      )
+    const example = files(path.join(exampleDir, 'src'))
+      .concat(files(path.join(exampleDir, 'tests')))
+      .map((f) => readFileSync(f, 'utf8'))
+      .join('\n')
+    expect(example).not.toMatch(/evals\/requests|hidden\//)
+    for (const r of requests) for (const t of r.hiddenTests) expect(example).not.toContain(t)
+  })
+
+  it('reports what is wrong with a broken folder', () => {
+    const dir = path.join(evalsDir, '../.crew/broken-requests')
+    rmSync(dir, { recursive: true, force: true })
+    mkdirSync(path.join(dir, 'stray'), { recursive: true })
+    mkdirSync(path.join(dir, 'too-few', 'solution', 'lib'), { recursive: true })
+    writeFileSync(path.join(dir, 'too-few', 'too-few.test.ts'), "it('only one', () => {})\n")
+    writeFileSync(path.join(dir, 'too-few', 'solution', 'lib', 'x.ts'), '')
+    writeFileSync(path.join(dir, 'too-few', 'notes.md'), '')
+    const request = (id: string, hiddenTests: string[]) => ({
+      id,
+      title: `Title ${id}`,
+      request: 'A request long enough.',
+      hiddenTests,
+    })
+    writeFileSync(
+      path.join(dir, 'requests.json'),
+      JSON.stringify([
+        request('too-few', ['too-few.test.ts', 'gone.test.ts']),
+        request('no-folder', ['x.test.ts']),
+      ]),
+    )
+    expect(loadRequests(dir, exampleDir).problems).toEqual([
+      'too-few: hidden test gone.test.ts is missing',
+      'too-few: 1 hidden tests, expected 3 to 7',
+      'too-few: solution file lib/x.ts is outside src/',
+      'too-few: unexpected file notes.md',
+      'no-folder: folder is missing',
+      'stray: folder has no entry in requests.json',
+    ])
+    rmSync(dir, { recursive: true, force: true })
+  })
+})
+
+describe('countTests', () => {
+  it('counts it( and test( at the start of a line', () => {
+    expect(countTests("it('a', f)\n  test('b', f)\n  // it('c')\nconst x = 'it('")).toBe(2)
+  })
+})
+
+describe('validateRequests', () => {
+  it('proves each request is a fair test: hidden tests fail before, pass on the solution, visible tests stay green', () => {
+    const validation = validateRequests({
+      requestsDir,
+      exampleDir,
+      workDir: path.join(evalsDir, '../.crew/validate-requests-test'),
+    })
+    expect(validation.problems, formatValidation(validation)).toEqual([])
+    expect(validation.results).toHaveLength(10)
+    for (const r of validation.results) {
+      expect(r.failingBefore, r.id).toBeGreaterThan(0)
+      expect(r.failingAfter, r.id).toBe(0)
+      expect([r.visibleTests, r.visibleFailingAfter], r.id).toEqual([20, 0])
+    }
+    expect(formatValidation(validation)).toContain('All requests are fair tests.')
+  }, 180_000)
+})

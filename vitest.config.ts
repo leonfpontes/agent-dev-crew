@@ -23,7 +23,16 @@ export default defineConfig({
         extends: true,
         test: { name: 'fernhill-orders', root: 'examples/fernhill-orders', environment: 'node' },
       },
-      { extends: true, test: { name: '@crew/evals', root: 'evals', environment: 'node' } },
+      {
+        extends: true,
+        // requests/ holds the hidden tests: they run only against a copy of the example (validate.ts)
+        test: {
+          name: '@crew/evals',
+          root: 'evals',
+          environment: 'node',
+          exclude: ['requests/**', '**/node_modules/**'],
+        },
+      },
       'apps/web',
     ],
     coverage: {
