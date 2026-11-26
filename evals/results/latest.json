@@ -1,5 +1,6 @@
 {
   "schema": 1,
+  "set": "easy",
   "runAt": "2026-11-26T17:34:41.125Z",
   "model": "claude-haiku-5-5",
   "fallbackModel": "claude-haiku-4-5-20251001",
@@ -19,6 +20,9 @@
     "learningCurve": 0.149161
   },
   "stoppedEarly": false,
+  "notes": [
+    "The one failure of the crew with the playbook (fix-rounding, round 1) came from a bug in the engine, fixed after this run: the PO's answer ran out of output tokens before it called submit_plan, and the engine ended the step instead of asking it to act. The easy set was not run again after the fix."
+  ],
   "main": [
     {
       "variant": "single-agent",

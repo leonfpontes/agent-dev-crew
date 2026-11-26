@@ -1,7 +1,9 @@
-# Evaluation results
+# Evaluation results · easy set (baseline)
 
 10 feature requests × 3 variants × 3 rounds on `claude-haiku-5-5` (fallback `claude-haiku-4-5-20251001`), prompts `e5e1c7407817`, example `fernhill-orders@39083dc`, run 2026-11-26.
 Spent $1.29 of the $4.90 cap (ablation $1.14, learning curve $0.15 of its $3.00).
+
+> **Note:** The one failure of the crew with the playbook (fix-rounding, round 1) came from a bug in the engine, fixed after this run: the PO's answer ran out of output tokens before it called submit_plan, and the engine ended the step instead of asking it to act. The easy set was not run again after the fix.
 
 Mean ± standard deviation across rounds. A request passes when all its hidden acceptance tests pass.
 

@@ -92,6 +92,24 @@ The whole evaluation, 100 runs, cost $1.29 under a hard $4.90 cap.
 
 claude-haiku-5-5 (fallback claude-haiku-4-5-20251001) · 10 requests × 3 variants × 3 rounds · run 2026-11-26 · mean ± standard deviation across rounds · [full results](evals/results/latest.md)
 
+### Hard set
+
+On 8 feature requests with hidden acceptance tests, a single Claude Haiku 5.5 agent passed all 8 in each of 3 rounds (100% ± 0). The four-role crew passed 88% ± 0, at 1.9× the cost per request ($0.0529 vs $0.0274) and 1.7× the time.
+
+In 24 learning runs the retro proposed 20 lessons; 20 became rules, taking the playbook to v12. With it, the crew passed 83% ± 7.
+
+Here one agent does better than the crew, and costs less.
+
+The whole evaluation, 96 runs, cost $4.90 under a hard $5.52 cap.
+
+| Variant             | Requests passing | Cost per request | Time per request | Fix loops per request |
+| ------------------- | ---------------: | ---------------: | ---------------: | --------------------: |
+| Single agent        |         100% ± 0 |          $0.0274 |            145 s |                  0.00 |
+| Crew, no playbook   |          88% ± 0 |          $0.0529 |            252 s |                  0.04 |
+| Crew + playbook v12 |          83% ± 7 |          $0.0640 |            312 s |                  0.04 |
+
+claude-haiku-5-5 (fallback claude-haiku-4-5-20251001) · 8 requests × 3 variants × 3 rounds · run 2026-11-26 · mean ± standard deviation across rounds · [full results](evals/results/hard.md)
+
 <!-- scoreboard:end -->
 
 Reproduce with `pnpm eval` (your `ANTHROPIC_API_KEY`, a hard cost cap), then `pnpm readme`.
