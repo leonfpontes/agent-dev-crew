@@ -1,4 +1,13 @@
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
@@ -10,6 +19,7 @@ import {
   permissionFlags,
   prepareForVitest,
   runNodeScript,
+  runnerReadDirs,
   runVitest,
 } from './index.js'
 
@@ -150,6 +160,40 @@ test('test code stays in the sandbox', async () => {
 
   it('reads its dependencies from the store, not the whole repository', () => {
     expect(path.basename(nodeModulesDir())).toMatch(/^(\.pnpm|node_modules)$/)
+  })
+
+  it('reads only the store folders of its own dependencies, none with a link out of the store', () => {
+    const store = nodeModulesDir()
+    const dirs = runnerReadDirs()
+    expect(dirs.length).toBeGreaterThan(1)
+    for (const dir of dirs) {
+      expect(path.dirname(dir)).toBe(store)
+      expect(path.basename(dir)).not.toBe('node_modules')
+      const modules = path.join(dir, 'node_modules')
+      for (const name of readdirSync(modules)) {
+        const link = path.join(modules, name)
+        if (lstatSync(link).isSymbolicLink() && existsSync(link))
+          expect(realpathSync(link).startsWith(store + path.sep), link).toBe(true)
+      }
+    }
+  })
+
+  it("can't read the repository through the store's workspace links (Node follows symlinks)", async () => {
+    // pnpm's hidden hoisting folder links every workspace package: …/.pnpm/node_modules/@crew/* → packages/*.
+    const link = path.join(nodeModulesDir(), 'node_modules', '@crew', 'sandbox', 'package.json')
+    expect(existsSync(link)).toBe(true)
+    const inStore = path.join(runnerReadDirs()[0]!, 'node_modules')
+    const out = await runNodeScript(
+      script(
+        'store-links.mjs',
+        `import { readdirSync, readFileSync } from 'node:fs'
+const tryRead = (f) => { try { readFileSync(f); return 'READ' } catch (e) { return e.code } }
+const tryList = (d) => { try { readdirSync(d); return 'READ' } catch (e) { return e.code } }
+console.log(JSON.stringify([tryRead(${JSON.stringify(link)}), tryList(${JSON.stringify(inStore)})]))`,
+      ),
+      { read: [box, ...runnerReadDirs()], write: [work] },
+    )
+    expect(JSON.parse(out.stdout.trim())).toEqual(['ERR_ACCESS_DENIED', 'READ'])
   })
 
   it('says why when the runner itself fails', async () => {

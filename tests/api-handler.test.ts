@@ -25,3 +25,18 @@ describe('api/handler (Vercel, replay)', () => {
     expect(write.status).toBe(405)
   })
 })
+
+describe('api/handler · both scoreboards', () => {
+  it('serves the hard set next to the easy one', async () => {
+    const meta = (await (
+      await GET(new Request('https://crew.example.dev/api/handler?path=meta'))
+    ).json()) as { evaluationSets: string[] }
+    expect(meta.evaluationSets).toEqual(['easy', 'hard'])
+    const hard = await GET(new Request('https://crew.example.dev/api/handler?path=evaluation&set=hard'))
+    expect(hard.status).toBe(200)
+    expect((await hard.json()) as { set: string; exampleData: boolean }).toMatchObject({
+      set: 'hard',
+      exampleData: false,
+    })
+  })
+})

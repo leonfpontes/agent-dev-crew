@@ -17,8 +17,12 @@ permission model (it warns that `--allow-worker` "could invalidate the permissio
   shared names and the DAG; run statuses, step kinds, event kinds and deciders stay in `@crew/trace`,
   which owns the tables they describe.
 - **Tests run with Vitest's `forks` pool, never `threads`.** Forked children inherit the permission
-  flags; worker threads would not. The runner reads only the copy and the dependency store, writes
-  only the copy, and may load native addons (its bundler).
+  flags; worker threads would not. The runner reads only the copy and the store folders of its own
+  dependencies (`runnerReadDirs`, found by following each folder's links), writes only the copy, and
+  may load native addons (its bundler). Never the whole store: Node's permission model follows
+  symlinks, and pnpm's hidden `node_modules/.pnpm/node_modules` links every workspace package, so
+  reading it would open the real repository. A dependency folder with a link out of the store stops
+  the run instead.
 - **The network is blocked by a preload** (`packages/sandbox/preload/block-network.mjs`) passed in
   `NODE_OPTIONS`, so it reaches every Node child: sockets, TLS, UDP, DNS, `fetch` and `WebSocket`
   throw `ERR_CREW_SANDBOX_BLOCKED`, named imports included (`syncBuiltinESMExports`). Inside a test

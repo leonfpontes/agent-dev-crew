@@ -6,6 +6,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions: [Sem
 
 ### Fixed
 
+- The sandbox no longer reads the real repository through pnpm's workspace links: the test runner reads only the store folders of its own dependencies.
+- On Vercel only the app's routes open the app; any other path answers a real 404 (with the app's 404 page).
+
 - The API serves both scoreboards: `GET /api/evaluation?set=hard` reads `evals/results/hard.json` from a database of its own (locally and on Vercel), with the scoreboard's notes; `/api/meta` lists the sets.
 
 - An answer cut at `max_tokens` before any tool call no longer ends the step as finished: the engine drops it, asks the agent to act and goes on, within `maxTurns`.
