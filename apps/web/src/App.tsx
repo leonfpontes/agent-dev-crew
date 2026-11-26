@@ -17,15 +17,18 @@ import { RunsPage } from './pages/Runs'
 import { SharePage } from './pages/Share'
 
 export function App() {
-  const { route, pathname } = useLocation()
+  const { route, pathname, query } = useLocation()
   const { theme, toggle } = useTheme()
   const meta = useApi<Meta>('/api/meta')
 
   // The public page, the share images and the 404 have no app shell.
   if (route.name === 'how') return <HowItWorksPage theme={theme} onToggleTheme={toggle} />
-  if (route.name === 'share') return <SharePage />
-  if (route.name === 'demo') return <DemoPage />
-  if (route.name === 'not-found') return <NotFoundPage path={pathname} />
+  // /share and /demo are recording stages (fixed size, not for people): only with ?record.
+  const stage = (route.name === 'share' || route.name === 'demo') && query.has('record')
+  if (stage && route.name === 'share') return <SharePage />
+  if (stage && route.name === 'demo') return <DemoPage />
+  if (route.name === 'not-found' || route.name === 'share' || route.name === 'demo')
+    return <NotFoundPage path={pathname} />
 
   let page
   if (meta.state === 'loading')

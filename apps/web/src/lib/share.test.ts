@@ -40,11 +40,22 @@ describe('share images', () => {
 
   it('are drawn by /share, which exposes the values it drew', async () => {
     installApi({ scoreboard: 'real' })
-    renderAt('/share')
+    renderAt('/share?record')
     expect(
       (await screen.findAllByRole('img', { name: /^Agent Dev Crew\. A crew of AI agents/ })).length,
     ).toBe(4)
     expect(document.querySelectorAll('[id^="art-"]')).toHaveLength(4)
     await waitFor(() => expect(window.__shareValues?.run.id).toBe(SHOWCASE_RUN))
+  })
+
+  it('stay out of the public app: /share and /demo answer the 404 without ?record', async () => {
+    installApi()
+    for (const path of ['/share', '/demo']) {
+      renderAt(path)
+      expect(
+        await screen.findByRole('heading', { level: 1, name: 'This page is not in the trace' }),
+      ).toBeTruthy()
+      cleanup()
+    }
   })
 })

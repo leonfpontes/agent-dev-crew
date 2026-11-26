@@ -80,7 +80,11 @@ export function gifCaptions(run: RunDetail): Caption[] {
     { from: 3_000, to: 6_000, text: 'You approve the plan. Nothing runs before that.' },
     { from: 6_000, to: 11_000, text: 'Engineer, Reviewer and QA. QA sends it back once.' },
     { from: 11_000, to: 15_000, text: hiddenCaption(run) },
-    { from: 15_000, to: 20_000, text: 'The run teaches the next one, if you approve it.' },
+    {
+      from: 15_000,
+      to: 20_000,
+      text: 'A run can propose a rule. It joins the playbook only if you approve.',
+    },
   ]
 }
 

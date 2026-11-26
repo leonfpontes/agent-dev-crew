@@ -104,14 +104,15 @@ as a y / c / n prompt).
 The four screens read only the API above; every number on them comes from it. Components are
 `@leonfpontes/atlas-ui` from npm, with one color of its own, `--crew`, for the human gate.
 
-| Route         | Screen                                                                                                  |
-| ------------- | ------------------------------------------------------------------------------------------------------- |
-| `/`           | How it works: the public page (claim, a run summary, pipeline, trace, playbook, evaluation, quickstart) |
-| `/runs`       | Runs: the run waiting at the gate first, status tabs, variant filter, search (`/`), arrow keys          |
-| `/runs/:id`   | Run detail; `?step=<id>` selects a step, `?section=summary\|trace\|diff\|retro` picks the phone tab     |
-| `/playbook`   | Playbook; `#v<n>` opens a version in the history, `#engineer` (any role) scrolls to its rules           |
-| `/evaluation` | Evaluation                                                                                              |
-| `/share`      | The share images' artboards (not linked); any other path is the 404 page                                |
+| Route           | Screen                                                                                                  |
+| --------------- | ------------------------------------------------------------------------------------------------------- |
+| `/`             | How it works: the public page (claim, a run summary, pipeline, trace, playbook, evaluation, quickstart) |
+| `/runs`         | Runs: the run waiting at the gate first, status tabs, variant filter, search (`/`), arrow keys          |
+| `/runs/:id`     | Run detail; `?step=<id>` selects a step, `?section=summary\|trace\|diff\|retro` picks the phone tab     |
+| `/playbook`     | Playbook; `#v<n>` opens a version in the history, `#engineer` (any role) scrolls to its rules           |
+| `/evaluation`   | Evaluation                                                                                              |
+| `/share?record` | The share images' artboards; without `?record` (and for any unknown path), the 404 page                 |
+| `/demo?record`  | The stage the README GIF (`&mode=gif`) and the video are recorded from, frame by frame                  |
 
 Share images: `pnpm share-images` builds, serves the app like `pnpm demo` and screenshots `/share`
 into `apps/web/public/og.png` (the `og:image`), `docs/social-preview.png` (the repository's social

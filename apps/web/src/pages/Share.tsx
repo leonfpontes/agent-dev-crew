@@ -8,12 +8,12 @@ import { cn } from '@leonfpontes/atlas-ui'
 import { Mark } from '../components/icons'
 import { RunCard } from '../components/RunCard'
 import { useApi } from '../lib/api'
-import { useTitle } from '../lib/hooks'
+import { useNoIndex, useTitle } from '../lib/hooks'
 import { PHRASE, SHOWCASE_RUN, shareNumbers, shareRun, shareValues } from '../lib/share'
 import type { EvaluationResponse, RunDetail } from '../lib/types'
 
 const ART_SUB =
-  'PO, Engineer, Reviewer and QA as a DAG, with a human gate, a cost trace and a playbook that learns.'
+  'PO, Engineer, Reviewer and QA as a DAG, with a human gate, a cost trace and a playbook of rules you approve.'
 
 function Art({
   id,
@@ -103,6 +103,7 @@ declare global {
 }
 
 export function SharePage() {
+  useNoIndex()
   useTitle('Share images · Agent Dev Crew')
   const evaluation = useApi<EvaluationResponse>('/api/evaluation')
   const run = useApi<RunDetail>(`/api/runs/${SHOWCASE_RUN}`)

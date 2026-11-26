@@ -6,8 +6,8 @@
 # Agent Dev Crew
 
 A crew of AI agents takes a feature request to a tested diff. You approve the plan. PO, Engineer,
-Reviewer and QA run as a DAG with one human gate, a cost trace for every step, and a playbook that
-learns from each run. An evaluation measures the crew against a single agent, with hidden tests.
+Reviewer and QA run as a DAG with one human gate, a cost trace for every step, and a playbook of
+rules you approve. An evaluation measures the crew against a single agent, with hidden tests.
 
 ![A run from the terminal to the human gate, the trace filling step by step with a fix loop, the diff with 6 of 6 hidden tests passing, and the lesson the retro proposes for the playbook.](docs/media/crew-demo.gif)
 
@@ -68,7 +68,7 @@ flowchart LR
 ## Evaluation
 
 Each feature request has hidden acceptance tests that the agents never see. Three variants run every
-request: one agent with every tool, the crew, and the crew with the learned playbook. A request
+request: one agent with every tool, the crew, and the crew with the playbook. A request
 passes when all its hidden tests pass. Method and limits: [evals/README.md](evals/README.md) and
 [ADR 0006](docs/adr/0006-evaluation-harness-and-scoreboard.md).
 

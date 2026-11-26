@@ -163,6 +163,7 @@ function Hero({ run, evaluation }: { run?: RunDetail; evaluation?: EvaluationRes
             title="Replay demo · no API key"
             copyText={`${CLONE}\n$ pnpm demo`}
             copyLabel="Copy commands"
+            wrap
           >
             {`${CLONE}\n$ pnpm demo`}
           </CodeBlock>
@@ -544,8 +545,8 @@ function EvalSection({ evaluation }: { evaluation?: EvaluationResponse }) {
           {evaluation ? (
             <>
               {evaluation.matrix.length} feature requests with hidden acceptance tests. Three variants: one
-              agent doing everything, the crew, and the crew with the learned playbook. Mean ± standard
-              deviation of {rounds} rounds.
+              agent doing everything, the crew, and the crew with the playbook. Mean ± standard deviation of{' '}
+              {rounds} rounds.
               {headline(evaluation) && <> {headline(evaluation)}</>}
             </>
           ) : (
@@ -667,7 +668,7 @@ function Quickstart({ budgetMicros }: { budgetMicros: number }) {
                 </h3>
                 <p className="text-[15px] text-muted-foreground">{s.text}</p>
               </div>
-              <CodeBlock title="Terminal" copyText={s.copy}>
+              <CodeBlock title="Terminal" copyText={s.copy} wrap>
                 {s.code}
               </CodeBlock>
             </li>

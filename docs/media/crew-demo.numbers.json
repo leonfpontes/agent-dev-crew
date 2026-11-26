@@ -60,7 +60,7 @@
     {
       "from": 15000,
       "to": 20000,
-      "text": "The run teaches the next one, if you approve it."
+      "text": "A run can propose a rule. It joins the playbook only if you approve."
     }
   ]
 }

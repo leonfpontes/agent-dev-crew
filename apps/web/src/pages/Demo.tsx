@@ -24,7 +24,7 @@ import {
 import { parseDiff, parseHunks } from '../lib/diff'
 import { bestOf, byVariant, costDigits, headline } from '../lib/evaluation'
 import { clock, estimate, percent, sdPoints, usd } from '../lib/format'
-import { useTitle } from '../lib/hooks'
+import { useNoIndex, useTitle } from '../lib/hooks'
 import { planFrom, runTotal, spans, toolCalls, toolArg } from '../lib/run'
 import { SHOWCASE_RUN } from '../lib/share'
 import type {
@@ -65,6 +65,9 @@ function Frame({ title, children }: { title: string; children: ReactNode }) {
         Agent Dev Crew
         <span className="text-text-subtle">/</span>
         <span className="font-normal text-muted-foreground">{title}</span>
+        <span className="ml-auto rounded-sm border border-dashed border-warning bg-warning-subtle px-2 text-[13px] leading-5 font-medium text-warning">
+          example run
+        </span>
       </div>
       <div className="overflow-hidden p-5">{children}</div>
     </div>
@@ -141,7 +144,7 @@ function Terminal({ p, data, withGate }: { p: number; data: Data; withGate: bool
   return (
     <div className="dark grid h-full grid-rows-[auto_1fr] overflow-hidden rounded-xl bg-code-bg">
       <div className="flex h-11 items-center border-b border-[#2E3542] px-4 text-[13px] text-code-dim">
-        Terminal · live mode
+        Terminal · example run
       </div>
       <pre className="m-0 px-6 py-5 font-mono text-[17px]/[1.65] break-words whitespace-pre-wrap text-code-fg">
         {text.split('\n').map((l, i) => (
@@ -321,6 +324,7 @@ function NumberScene({ data }: { data: Data }) {
 }
 
 export function DemoPage() {
+  useNoIndex()
   useTitle('Demo · Agent Dev Crew')
   const gif = new URLSearchParams(window.location.search).get('mode') === 'gif'
   const [t, setT] = useState(0)

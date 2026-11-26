@@ -43,7 +43,7 @@ const browser = await chromium.launch()
 try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 })
   const open = async (mode) => {
-    await page.goto(`http://127.0.0.1:${port}/demo?theme=light${mode === 'gif' ? '&mode=gif' : ''}`, {
+    await page.goto(`http://127.0.0.1:${port}/demo?record&theme=light${mode === 'gif' ? '&mode=gif' : ''}`, {
       waitUntil: 'networkidle',
     })
     await page.evaluate(() => document.fonts.ready)

@@ -32,7 +32,7 @@ await new Promise((resolve, reject) => {
 const browser = await chromium.launch()
 try {
   const page = await browser.newPage({ viewport: { width: 1400, height: 3000 }, deviceScaleFactor: 1 })
-  await page.goto(`http://127.0.0.1:${port}/share?theme=light`, { waitUntil: 'networkidle' })
+  await page.goto(`http://127.0.0.1:${port}/share?record&theme=light`, { waitUntil: 'networkidle' })
   await page.evaluate(() => document.fonts.ready)
   await page.waitForFunction(() => window.__shareValues !== undefined)
   for (const [id, file] of [

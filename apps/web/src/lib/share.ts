@@ -10,7 +10,7 @@ import type { EvaluationResponse, RunDetail, StepRow } from './types'
 /** The one sentence: the site's H1 = the README cover = the social preview = the OG image. */
 export const PHRASE = 'A crew of AI agents takes a feature request to a tested diff. You approve the plan.'
 export const SUB =
-  'PO, Engineer, Reviewer and QA run as a DAG with one human gate, a cost trace for every step, and a playbook that learns from each run.'
+  'PO, Engineer, Reviewer and QA run as a DAG with one human gate, a cost trace for every step, and a playbook of rules you approve.'
 
 /** The run the images and the hero show: the one with the gate, a fix loop and a retro. */
 export const SHOWCASE_RUN = 142

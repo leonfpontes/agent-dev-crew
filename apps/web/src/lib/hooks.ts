@@ -57,3 +57,14 @@ export function useTitle(title: string) {
     document.title = title
   }, [title])
 }
+
+/** Keeps a page out of search engines (the recording stages). */
+export function useNoIndex() {
+  useEffect(() => {
+    const meta = document.createElement('meta')
+    meta.name = 'robots'
+    meta.content = 'noindex'
+    document.head.append(meta)
+    return () => meta.remove()
+  }, [])
+}
