@@ -61,6 +61,7 @@ describe('team skeleton', () => {
     'docs/README.md',
     'docs/ARCHITECTURE.md',
     'docs/adr/0001-pnpm-typescript-atlas.md',
+    'docs/adr/0002-packages-node-and-storage.md',
   ])('has %s', (file) => {
     expect(existsSync(path.join(root, file))).toBe(true)
   })
@@ -90,6 +91,34 @@ describe('team skeleton', () => {
     const files = repoFiles()
     expect(files.filter((f) => /(^|\/)\.env(\.|$)/.test(f) && !f.endsWith('.env.example'))).toEqual([])
     expect(read('.env.example')).not.toMatch(/^[A-Z0-9_]+=\S/m)
+  })
+})
+
+describe('monorepo', () => {
+  // ADR 0002: every workspace package is private; the demo runs from a clone.
+  it.each([
+    ['packages/core', '@crew/core'],
+    ['packages/sandbox', '@crew/sandbox'],
+    ['apps/web', '@crew/web'],
+    ['examples/fernhill-orders', 'fernhill-orders'],
+    ['evals', '@crew/evals'],
+  ])('%s is the private package %s with its own build', (dir, name) => {
+    const pkg = JSON.parse(read(`${dir}/package.json`))
+    expect(pkg.name).toBe(name)
+    expect(pkg.private).toBe(true)
+    expect(pkg.scripts.build).toBeTruthy()
+  })
+
+  it('runs the end-to-end tests on their own port, never on a server already running', () => {
+    const config = read('playwright.config.ts')
+    expect(config).toContain('process.env.E2E_PORT')
+    expect(config).toContain('reuseExistingServer: false')
+    expect(config).toContain('--strictPort')
+  })
+
+  it('uses the published Atlas components in the app', () => {
+    const web = JSON.parse(read('apps/web/package.json'))
+    expect(web.dependencies['@leonfpontes/atlas-ui']).toMatch(/^\d+\.\d+\.\d+$/)
   })
 })
 
