@@ -1,0 +1,3 @@
+/* The Atlas theme (shadcn/ui variables, light and dark) from the published package. */
+@import '@leonfpontes/atlas-ui/styles.css';
+@source '../src';
