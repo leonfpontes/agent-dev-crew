@@ -21,8 +21,8 @@ E2E_PORT=4300 pnpm e2e     # end-to-end tests on your own port
 - Several people and agents run servers on the same machine. The end-to-end tests start their
   own server on `E2E_PORT` (default 4173) with `--strictPort` and never reuse one that is already
   running: a busy port fails fast instead of testing someone else's build.
-- Code written by the agents only runs through `packages/sandbox` (no environment, no network,
-  only a throwaway copy of the example repository).
+- Code written by the agents only runs through `packages/sandbox`: no environment variables,
+  writes only to a throwaway copy of the example repository, no child processes.
 
 ## Rules
 
@@ -42,10 +42,11 @@ E2E_PORT=4300 pnpm e2e     # end-to-end tests on your own port
 
 ## Traps already paid for
 
-| Symptom                                         | Cause                                                                                                                                                                                                                 |
-| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm test -- --coverage` runs without coverage | pnpm passes the `--` on to Vitest; use `pnpm test --coverage`                                                                                                                                                         |
-| `Cannot find module '@crew/…'` on a clean clone | `dist/` doesn't exist before the build; workspace imports resolve to `src/` through the `crew-source` export condition (TypeScript) and the aliases in `vitest.config.ts`. A new package the others import needs both |
+| Symptom                                                                | Cause                                                                                                                                                                                                                 |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm test -- --coverage` runs without coverage                        | pnpm passes the `--` on to Vitest; use `pnpm test --coverage`                                                                                                                                                         |
+| `Cannot find module '@crew/…'` on a clean clone                        | `dist/` doesn't exist before the build; workspace imports resolve to `src/` through the `crew-source` export condition (TypeScript) and the aliases in `vitest.config.ts`. A new package the others import needs both |
+| A sandboxed script fails with `ERR_ACCESS_DENIED` on an allowed folder | Node checks permissions on real paths; on macOS `/var/folders` is `/private/var/folders`. Give the agents real paths (`realPath` from `@crew/sandbox`)                                                                |
 
 ## Publishing
 
