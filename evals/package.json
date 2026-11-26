@@ -1,0 +1,22 @@
+{
+  "name": "@crew/evals",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The evaluation: feature requests with hidden acceptance tests, three variants, three rounds.",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "crew-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "valibot": "1.5.0"
+  }
+}
