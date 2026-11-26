@@ -51,6 +51,7 @@ E2E_PORT=4300 pnpm e2e     # end-to-end tests on your own port
 | Sandboxed test code can read the repository or reach the network                                             | Vitest's `threads` pool: Node starts worker threads without the permission model. Use `forks`                                                                                                                         |
 | A blocked function still works through `import { connect } from 'node:net'`                                  | Named imports keep the original until `syncBuiltinESMExports()` runs after the patch                                                                                                                                  |
 | Vitest in the sandbox fails with `ERR_ACCESS_DENIED` on `…/pnpm-workspace.yaml` or `node_modules/.vite-temp` | Vite looks above the root for a workspace and bundles the config into `node_modules`; the copy gets its own `pnpm-workspace.yaml` and the config loads with `--configLoader native`                                   |
+| The retro sees a passed or failed run as `running`, with no tests                                            | `runCrew` writes the run row after the retro step; read the outcome from the retro context (`status`, `failureReason`, `tests`), not from `runs`                                                                      |
 
 ## Publishing
 
