@@ -63,6 +63,7 @@ describe('team skeleton', () => {
     'docs/adr/0001-pnpm-typescript-atlas.md',
     'docs/adr/0002-packages-node-and-storage.md',
     'docs/adr/0003-engine-and-sandbox.md',
+    'docs/adr/0005-trace-api-and-replay.md',
   ])('has %s', (file) => {
     expect(existsSync(path.join(root, file))).toBe(true)
   })
@@ -101,6 +102,7 @@ describe('monorepo', () => {
     ['packages/core', '@crew/core'],
     ['packages/sandbox', '@crew/sandbox'],
     ['packages/engine', '@crew/engine'],
+    ['packages/api', '@crew/api'],
     ['packages/trace', '@crew/trace'],
     ['apps/web', '@crew/web'],
     ['examples/fernhill-orders', 'fernhill-orders'],

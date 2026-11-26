@@ -12,6 +12,8 @@ export default defineConfig({
       { find: /^@crew\/core$/, replacement: src('./packages/core/src/index.ts') },
       { find: /^@crew\/sandbox$/, replacement: src('./packages/sandbox/src/index.ts') },
       { find: /^@crew\/engine$/, replacement: src('./packages/engine/src/index.ts') },
+      { find: /^@crew\/api$/, replacement: src('./packages/api/src/index.ts') },
+      { find: /^@crew\/api\/replay$/, replacement: src('./packages/api/src/replay-entry.ts') },
       { find: /^@crew\/evals$/, replacement: src('./evals/src/index.ts') },
       { find: /^@crew\/trace$/, replacement: src('./packages/trace/src/index.ts') },
     ],
@@ -22,6 +24,7 @@ export default defineConfig({
       { extends: true, test: { name: '@crew/core', root: 'packages/core', environment: 'node' } },
       { extends: true, test: { name: '@crew/sandbox', root: 'packages/sandbox', environment: 'node' } },
       { extends: true, test: { name: '@crew/engine', root: 'packages/engine', environment: 'node' } },
+      { extends: true, test: { name: '@crew/api', root: 'packages/api', environment: 'node' } },
       { extends: true, test: { name: '@crew/trace', root: 'packages/trace', environment: 'node' } },
       {
         extends: true,
