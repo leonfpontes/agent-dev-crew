@@ -2,6 +2,8 @@ import { act, cleanup, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { getJson } from '../../lib/api'
+import type { RunDetail } from '../../lib/types'
 import { installApi, NOW, renderAt } from '../../test/api'
 import { axe } from '../../test/axe'
 
@@ -230,5 +232,56 @@ describe('Run detail · failed, over budget, rejected, single agent, unknown', (
     renderAt('/runs/999')
     expect(await screen.findByText("Couldn't load run #999")).toBeTruthy()
     expect(screen.getByText('There is no run #999.')).toBeTruthy()
+  })
+})
+
+describe('Run detail · live states the replay seed does not have', () => {
+  it('shows a running step with the arc, and the run as running', async () => {
+    installApi()
+    const base = await getJson<RunDetail>('/api/runs/141')
+    const last = base.steps.filter((s) => s.kind === 'test').at(-1)!
+    const running: RunDetail = {
+      ...base,
+      run: {
+        ...base.run,
+        status: 'running',
+        duration_ms: null,
+        tests_passed: null,
+        tests_total: null,
+        hidden_passed: null,
+        hidden_total: null,
+      },
+      steps: base.steps
+        .filter((s) => s.kind !== 'retro')
+        .map((s) => (s.id === last.id ? { ...s, status: 'running', duration_ms: null } : s)),
+    }
+    installApi({ override: (path) => (path === '/api/runs/141' ? running : undefined) })
+    renderAt('/runs/141')
+    expect(await screen.findByRole('button', { name: /^QA · test, Running/ })).toBeTruthy()
+    expect(strip().textContent).toContain('Running')
+    expect(document.querySelector('[data-status="running"] .crew-spin')).not.toBeNull()
+  })
+
+  it('keeps each plan version and the comment that sent it back, like review rounds', async () => {
+    installApi()
+    const base = await getJson<RunDetail>('/api/runs/143')
+    const gate = base.steps.find((s) => s.kind === 'gate')!
+    const round1 = {
+      ...gate,
+      id: 9001,
+      seq: gate.seq,
+      status: 'changes-requested' as const,
+      decision: 'request-changes' as const,
+      decided_by: 'person' as const,
+      comment: 'Also refuse a quantity above the stock, with 409.',
+      duration_ms: 30_000,
+    }
+    const changed: RunDetail = { ...base, steps: [...base.steps.slice(0, 1), round1, ...base.steps.slice(1)] }
+    installApi({ override: (path) => (path === '/api/runs/143' ? changed : undefined) })
+    renderAt('/runs/143')
+    expect(await screen.findByRole('heading', { name: 'Human gate · plan v2 waiting for you' })).toBeTruthy()
+    expect(
+      screen.getByText('Changes requested · “Also refuse a quantity above the stock, with 409.”'),
+    ).toBeTruthy()
   })
 })
