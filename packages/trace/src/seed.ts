@@ -4,16 +4,19 @@
 // - Evaluation: 150 runs, 10 requests × 3 variants × 3 rounds (the ablation), plus the playbook
 //   learning curve (v1 in 3 rounds; v3, v5 and v6 in 1). The per-round numbers are chosen so the
 //   screens read as the approved design: they are example data, never a measurement.
-// Everything is deterministic: the same `now` gives the same database.
+// With a real evaluation (`seed(db, now, { evaluation })`, from evals/results/latest.json) the
+// Evaluation data and the playbook history are the measured ones instead, and the example runs
+// point at the real playbook versions (see seedReal below).
+// Everything is deterministic: the same `now` (and evaluation) gives the same database.
 
 import type { StatementSync } from 'node:sqlite'
 
 import type { Variant } from '@crew/core'
 
-import type { EvalSuite } from './contracts.js'
+import type { EvalSuite, FailureReason, PlaybookSection, RunStatus } from './contracts.js'
 import type { TraceDb } from './db.js'
 import { unifiedDiff } from './diff.js'
-import { SEED_PLAYBOOK } from './seed-playbook.js'
+import { SEED_PLAYBOOK, type SeedPlaybookVersion } from './seed-playbook.js'
 import { SEED_REQUESTS } from './seed-requests.js'
 import { SEED_MODEL, SEED_RUNS, type SeedRun, type SeedStep, type SeedTokens } from './seed-runs.js'
 
@@ -82,11 +85,11 @@ class Writer {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
   }
 
-  playbook(now: Date) {
+  playbook(now: Date, versions: SeedPlaybookVersion[] = SEED_PLAYBOOK) {
     let previous: string | null = null
-    for (const v of SEED_PLAYBOOK) {
+    for (const v of versions) {
       const created =
-        v.version === 8 ? new Date(now.getTime() - 20 * MINUTE) : new Date(now.getTime() - v.daysAgo * DAY)
+        v.daysAgo === 0 ? new Date(now.getTime() - 20 * MINUTE) : new Date(now.getTime() - v.daysAgo * DAY)
       const decided = v.status === 'proposed' ? null : new Date(created.getTime() + 5 * MINUTE).toISOString()
       this.insertPlaybook.run(
         v.version,
@@ -98,10 +101,26 @@ class Writer {
         v.sourceRunId,
         created.toISOString(),
         decided,
-        decided ? 'person' : null,
+        decided ? (v.decidedBy ?? 'person') : null,
       )
       previous = v.content
     }
+  }
+
+  /** Writes one lesson of a run, with no step (the evaluation keeps only run totals). */
+  lesson(runId: number, l: SeedEvaluation['playbook']['lessons'][number]) {
+    this.insertLesson.run(
+      runId,
+      null,
+      l.position,
+      l.error,
+      l.cause,
+      l.rule,
+      l.section,
+      l.status,
+      l.playbookVersion,
+      l.duplicateOf,
+    )
   }
 
   /** Writes a run with its steps, costs, events and lessons. */
@@ -377,9 +396,19 @@ function evalSteps(
   durationMs: number,
   loops: number,
   exhausted: boolean,
+  { gate = true, failed = false }: { gate?: boolean; failed?: boolean } = {},
 ): SeedStep[] {
   if (variant === 'single-agent') {
-    return [{ kind: 'solo', status: 'passed', at: 0, dur: durationMs / 1000, cost: costMicros / 1e6, tokens }]
+    return [
+      {
+        kind: 'solo',
+        status: failed ? 'failed' : 'passed',
+        at: 0,
+        dur: durationMs / 1000,
+        cost: costMicros / 1e6,
+        tokens,
+      },
+    ]
   }
   // plan, code, review, test, then per loop a fix and a test
   const weights = [10, 55 - 15 * loops, 20, 15, ...Array.from({ length: loops }, () => [10, 5]).flat()]
@@ -409,6 +438,20 @@ function evalSteps(
     k++
     return s
   }
+  // A run that stopped before the gate spent everything in its plan step.
+  if (!gate)
+    return [
+      {
+        kind: 'plan',
+        role: 'po',
+        status: failed ? 'failed' : 'passed',
+        at: 0,
+        dur: durationMs / 1000,
+        cost: costMicros / 1e6,
+        tokens,
+        maxAttempts: 3,
+      },
+    ]
   const steps: SeedStep[] = [next('plan', 'po', 'passed')]
   steps.push({
     kind: 'gate',
@@ -435,6 +478,8 @@ function evalSteps(
       children: [fix, test],
     })
   }
+  // A run that failed for another reason (budget, error) shows it on its last step.
+  if (failed && !exhausted) steps[steps.length - 1] = { ...steps[steps.length - 1]!, status: 'failed' }
   return steps
 }
 
@@ -488,6 +533,199 @@ function seedEvaluation(writer: Writer, now: Date) {
   }
 }
 
+// ---- A real evaluation -----------------------------------------------------------------------
+
+/** What the seed needs from a real evaluation: the shape of evals/results/latest.json (a subset). */
+export interface SeedEvaluation {
+  runs: {
+    id: number
+    requestId: string
+    variant: Variant
+    playbookVersion: number | null
+    suite: EvalSuite
+    round: number
+    status: string
+    failureReason: string | null
+    testsPassed: number | null
+    testsTotal: number | null
+    hiddenPassed: number
+    hiddenTotal: number
+    costMicros: number
+    tokens: { input: number; cacheRead: number; cacheWrite: number; output: number }
+    durationMs: number
+    fixLoops: number
+    gates: number
+  }[]
+  playbook: {
+    versions: {
+      version: number
+      title: string
+      status: string
+      source: string
+      sourceRunId: number | null
+      decidedBy: string | null
+      content: string
+    }[]
+    lessons: {
+      runId: number
+      position: number
+      error: string
+      cause: string
+      rule: string
+      section: string
+      status: string
+      playbookVersion: number | null
+      duplicateOf: number | null
+    }[]
+  }
+}
+
+/** The rules of one playbook section (the `- ` lines under `## <section>`). */
+function rulesOf(content: string, section: string): string[] {
+  const out: string[] = []
+  let inside = false
+  for (const line of content.split('\n')) {
+    const h = /^##\s+(.+?)\s*$/.exec(line)?.[1]
+    if (h !== undefined) inside = h === section
+    else if (inside && /^\s*-\s+/.test(line)) out.push(line.replace(/^\s*-\s+/, '').trim())
+  }
+  return out
+}
+
+/** Adds a rule as the last line of its section. */
+function withRule(content: string, section: string, rule: string): string {
+  const lines = content.replace(/\n+$/, '').split('\n')
+  const start = lines.findIndex((l) => l.trim() === `## ${section}`)
+  if (start === -1) return `${lines.join('\n')}\n\n## ${section}\n\n- ${rule}\n`
+  let end = lines.findIndex((l, i) => i > start && l.startsWith('## '))
+  if (end === -1) end = lines.length
+  let last = end - 1
+  while (last > start && lines[last]!.trim() === '') last--
+  lines.splice(last + 1, 0, `- ${rule}`)
+  return `${lines.join('\n')}\n`
+}
+
+/**
+ * The replay data with a real evaluation: its playbook history, its runs (one row each, with the
+ * steps the Evaluation screen counts) and its lessons. The example runs stay as recorded but point
+ * at the real versions: the example's v7 becomes the learned version, older ones count back from
+ * it, and run #142's proposal becomes the next version, waiting for a person. Example lessons whose
+ * rule the real playbook doesn't have are recorded as rejected.
+ */
+function seedReal(writer: Writer, now: Date, evaluation: SeedEvaluation) {
+  const versions = [...evaluation.playbook.versions].sort((a, b) => a.version - b.version)
+  const approved = versions.filter((v) => v.status === 'approved')
+  const learned = approved[approved.length - 1]
+  if (!learned) throw new Error('The evaluation has no approved playbook version.')
+  const runs = [...evaluation.runs].sort((a, b) => a.id - b.id)
+  const idOf = new Map(runs.map((r, i) => [r.id, 1001 + i]))
+  const count = versions.length
+
+  // The example's proposal (run #142, v8) on top of the learned version.
+  const example8 = SEED_PLAYBOOK.find((v) => v.version === 8)!
+  const exampleRule = SEED_RUNS.find((r) => r.id === 142)!.lessons![0]!
+  const proposal: SeedPlaybookVersion = {
+    version: versions[versions.length - 1]!.version + 1,
+    title: example8.title,
+    source: 'retro',
+    sourceRunId: 142,
+    status: 'proposed',
+    daysAgo: 0,
+    content: withRule(learned.content, exampleRule.section, exampleRule.rule),
+  }
+  writer.playbook(now, [
+    ...versions.map((v, i): SeedPlaybookVersion => ({
+      version: v.version,
+      title: v.title,
+      source: v.source as SeedPlaybookVersion['source'],
+      sourceRunId: v.sourceRunId === null ? null : (idOf.get(v.sourceRunId) ?? null),
+      status: v.status as SeedPlaybookVersion['status'],
+      daysAgo: (count - i) / 24, // an hour apart, the newest an hour ago
+      content: v.content,
+      decidedBy: (v.decidedBy ?? undefined) as SeedPlaybookVersion['decidedBy'],
+    })),
+    proposal,
+  ])
+
+  const contentOf = (version: number) =>
+    version === proposal.version ? proposal.content : versions.find((v) => v.version === version)!.content
+  const map = (example: number) =>
+    example === 8
+      ? proposal.version
+      : (approved[Math.max(0, approved.length - 1 - (7 - example))] ?? approved[0]!).version
+  const remapEvents = (events: SeedStep['events']) =>
+    events?.map((e) => {
+      const p = e.payload as { playbook?: { version: number; section: PlaybookSection }; rules?: string[] }
+      if (!p?.playbook) return e
+      const version = map(p.playbook.version)
+      return {
+        ...e,
+        payload: {
+          ...p,
+          playbook: { ...p.playbook, version },
+          rules: rulesOf(contentOf(version), p.playbook.section),
+        },
+      }
+    })
+  const remapStep = (step: SeedStep): SeedStep => ({
+    ...step,
+    events: remapEvents(step.events),
+    children: step.children?.map(remapStep),
+  })
+  for (const run of SEED_RUNS) {
+    const { startedMinutesAgo, requestId, ...rest } = run
+    writer.run({
+      ...rest,
+      playbookVersion: run.playbookVersion === null ? null : map(run.playbookVersion),
+      steps: run.steps.map(remapStep),
+      lessons: run.lessons?.map((l) => {
+        const version = l.playbookVersion ?? l.duplicateOf
+        const target = version === undefined ? undefined : map(version)
+        const has = target !== undefined && rulesOf(contentOf(target), l.section).includes(l.rule)
+        if (l.status === 'proposed' && target === proposal.version) return { ...l, playbookVersion: target }
+        return has
+          ? { ...l, playbookVersion: l.playbookVersion && target, duplicateOf: l.duplicateOf && target }
+          : { ...l, status: 'rejected', playbookVersion: undefined, duplicateOf: undefined }
+      }),
+      request: requestOf(requestId),
+      origin: 'example',
+      startedAt: new Date(now.getTime() - startedMinutesAgo * MINUTE),
+    })
+  }
+
+  // The evaluation runs, in the order they ran, 20 seconds apart, ending an hour ago.
+  const start = now.getTime() - 60 * MINUTE - runs.length * 20_000
+  for (const [i, r] of runs.entries()) {
+    const exhausted = r.failureReason === 'fix-loops-exhausted'
+    const tokens = r.tokens.input + r.tokens.cacheRead + r.tokens.cacheWrite + r.tokens.output
+    writer.run({
+      id: idOf.get(r.id)!,
+      request: requestOf(r.requestId),
+      variant: r.variant,
+      playbookVersion: r.playbookVersion,
+      origin: 'eval',
+      suite: r.suite,
+      round: r.round,
+      status: r.status as RunStatus,
+      failureReason: (r.failureReason ?? undefined) as FailureReason | undefined,
+      startedAt: new Date(start + i * 20_000),
+      duration: r.durationMs / 1000,
+      repoRef: SEED_RUNS[0]!.repoRef,
+      tests: r.testsTotal === null ? undefined : [r.testsPassed ?? 0, r.testsTotal],
+      hidden: [r.hiddenPassed, r.hiddenTotal],
+      steps: evalSteps(r.variant, r.costMicros, tokens, r.durationMs, r.fixLoops, exhausted, {
+        gate: r.gates > 0,
+        failed: r.status === 'failed',
+      }),
+    })
+  }
+  for (const l of evaluation.playbook.lessons) {
+    const runId = idOf.get(l.runId)
+    if (runId === undefined) continue
+    writer.lesson(runId, l)
+  }
+}
+
 export interface SeedCounts {
   runs: number
   steps: number
@@ -497,25 +735,23 @@ export interface SeedCounts {
   playbookVersions: number
 }
 
-/** Writes the example data into an empty, migrated trace database, in one transaction. */
-export function seed(db: TraceDb, now: Date = SEED_NOW): SeedCounts {
+/**
+ * Writes the example data into an empty, migrated trace database, in one transaction. With
+ * `evaluation`, the Evaluation data and the playbook history are the real ones (seedReal).
+ */
+export function seed(
+  db: TraceDb,
+  now: Date = SEED_NOW,
+  options: { evaluation?: SeedEvaluation } = {},
+): SeedCounts {
   const count = (table: string) => (db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n
   if (count('runs') + count('playbook_versions') > 0)
     throw new Error('The trace database is not empty; seed an empty one.')
   db.exec('BEGIN IMMEDIATE')
   try {
     const writer = new Writer(db)
-    writer.playbook(now)
-    for (const run of SEED_RUNS) {
-      const { startedMinutesAgo, requestId, ...rest } = run
-      writer.run({
-        ...rest,
-        request: requestOf(requestId),
-        origin: 'example',
-        startedAt: new Date(now.getTime() - startedMinutesAgo * MINUTE),
-      })
-    }
-    seedEvaluation(writer, now)
+    if (options.evaluation) seedReal(writer, now, options.evaluation)
+    else seedExample(writer, now)
     db.exec('COMMIT')
   } catch (error) {
     db.exec('ROLLBACK')
@@ -529,4 +765,18 @@ export function seed(db: TraceDb, now: Date = SEED_NOW): SeedCounts {
     lessons: count('lessons'),
     playbookVersions: count('playbook_versions'),
   }
+}
+
+function seedExample(writer: Writer, now: Date) {
+  writer.playbook(now)
+  for (const run of SEED_RUNS) {
+    const { startedMinutesAgo, requestId, ...rest } = run
+    writer.run({
+      ...rest,
+      request: requestOf(requestId),
+      origin: 'example',
+      startedAt: new Date(now.getTime() - startedMinutesAgo * MINUTE),
+    })
+  }
+  seedEvaluation(writer, now)
 }

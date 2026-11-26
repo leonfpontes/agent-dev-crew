@@ -1,9 +1,6 @@
-// The replay seed against its sources: the requests in evals/requests and the numbers of the
-// approved design, frozen below. If the seed changes, the screens built on it change too.
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+// The replay seed against its sources: the numbers of the approved design, frozen below (the
+// requests check lives in evals). If the seed changes, the screens built on it change too.
 
-import { loadRequests } from '@crew/evals'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -26,7 +23,6 @@ import {
   unifiedDiff,
 } from './index.js'
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 const db = openTrace()
 migrate(db)
 const counts = seed(db)
@@ -66,17 +62,6 @@ describe('seed', () => {
     expect(counts).toMatchObject({ runs: 8 + 90 + 60, lessons: 3, playbookVersions: 8 })
     expect(counts.steps).toBeGreaterThan(counts.runs)
     expect(counts.events).toBeGreaterThan(counts.steps)
-  })
-
-  it('freezes the evaluation requests exactly as evals/requests has them', () => {
-    const { requests, problems } = loadRequests(
-      path.join(root, 'evals/requests'),
-      path.join(root, 'examples/fernhill-orders'),
-    )
-    expect(problems).toEqual([])
-    expect(SEED_REQUESTS).toEqual(
-      requests.map((r) => ({ id: r.id, title: r.title, request: r.request, hiddenTests: r.hiddenTestCount })),
-    )
   })
 
   it('refuses to seed a database that already has data', () => {

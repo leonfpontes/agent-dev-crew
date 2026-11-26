@@ -19,7 +19,8 @@
     "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build",
     "qa": "pnpm check && pnpm e2e",
     "crew": "pnpm -s --filter @crew/api... build && node packages/api/dist/cli.js",
-    "demo": "pnpm build && pnpm --filter @crew/trace seed && node packages/api/dist/cli.js serve"
+    "demo": "pnpm build && pnpm --filter @crew/trace seed && node packages/api/dist/cli.js serve",
+    "eval": "pnpm --filter \"@crew/evals...\" build && node evals/dist/eval-cli.js"
   },
   "license": "MIT",
   "devDependencies": {

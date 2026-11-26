@@ -91,6 +91,15 @@ importers:
 
   evals:
     dependencies:
+      '@crew/core':
+        specifier: workspace:*
+        version: link:../packages/core
+      '@crew/engine':
+        specifier: workspace:*
+        version: link:../packages/engine
+      '@crew/trace':
+        specifier: workspace:*
+        version: link:../packages/trace
       valibot:
         specifier: 1.5.0
         version: 1.5.0(typescript@6.0.3)
@@ -148,10 +157,6 @@ importers:
       '@crew/core':
         specifier: workspace:*
         version: link:../core
-    devDependencies:
-      '@crew/evals':
-        specifier: workspace:*
-        version: link:../../evals
 
 packages:
 

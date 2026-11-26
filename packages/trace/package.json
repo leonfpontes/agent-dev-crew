@@ -19,8 +19,5 @@
   },
   "dependencies": {
     "@crew/core": "workspace:*"
-  },
-  "devDependencies": {
-    "@crew/evals": "workspace:*"
   }
 }

@@ -9,9 +9,11 @@ export interface SeedPlaybookVersion {
   source: PlaybookSource
   sourceRunId: number | null
   status: PlaybookStatus
-  /** Days before the seed's "now" when it was written; v8 uses minutes (see seed.ts). */
+  /** Days before the seed's "now" when it was written; 0 = 20 minutes ago (see seed.ts). */
   daysAgo: number
   content: string
+  /** Who decided it, when decided (default: a person). */
+  decidedBy?: 'person' | 'policy'
 }
 
 const doc = (sections: {

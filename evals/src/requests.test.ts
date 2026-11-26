@@ -2,6 +2,7 @@ import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'nod
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { SEED_REQUESTS } from '@crew/trace'
 import { describe, expect, it } from 'vitest'
 
 import { countTests, loadRequests } from './requests.js'
@@ -107,4 +108,16 @@ describe('validateRequests', () => {
     }
     expect(formatValidation(validation)).toContain('All requests are fair tests.')
   }, 180_000)
+})
+
+// Moved from @crew/trace (its seed must match the requests); the check lives here so the trace
+// doesn't depend on the evaluation, which now depends on the trace.
+describe('the replay seed', () => {
+  it('freezes the evaluation requests exactly as evals/requests has them', () => {
+    const { requests, problems } = loadRequests(requestsDir, exampleDir)
+    expect(problems).toEqual([])
+    expect(SEED_REQUESTS).toEqual(
+      requests.map((r) => ({ id: r.id, title: r.title, request: r.request, hiddenTests: r.hiddenTestCount })),
+    )
+  })
 })

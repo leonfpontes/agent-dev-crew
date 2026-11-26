@@ -18,6 +18,9 @@
     "validate": "pnpm run build && node dist/validate-cli.js"
   },
   "dependencies": {
+    "@crew/core": "workspace:*",
+    "@crew/engine": "workspace:*",
+    "@crew/trace": "workspace:*",
     "valibot": "1.5.0"
   }
 }
