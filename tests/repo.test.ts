@@ -99,6 +99,7 @@ describe('monorepo', () => {
   it.each([
     ['packages/core', '@crew/core'],
     ['packages/sandbox', '@crew/sandbox'],
+    ['packages/trace', '@crew/trace'],
     ['apps/web', '@crew/web'],
     ['examples/fernhill-orders', 'fernhill-orders'],
     ['evals', '@crew/evals'],

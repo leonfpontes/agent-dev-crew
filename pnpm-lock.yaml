@@ -98,6 +98,16 @@ importers:
 
   packages/sandbox: {}
 
+  packages/trace:
+    dependencies:
+      '@crew/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@crew/evals':
+        specifier: workspace:*
+        version: link:../../evals
+
 packages:
 
   '@babel/code-frame@7.29.7':

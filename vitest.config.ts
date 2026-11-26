@@ -12,6 +12,7 @@ export default defineConfig({
       { find: /^@crew\/core$/, replacement: src('./packages/core/src/index.ts') },
       { find: /^@crew\/sandbox$/, replacement: src('./packages/sandbox/src/index.ts') },
       { find: /^@crew\/evals$/, replacement: src('./evals/src/index.ts') },
+      { find: /^@crew\/trace$/, replacement: src('./packages/trace/src/index.ts') },
     ],
   },
   test: {
@@ -19,6 +20,7 @@ export default defineConfig({
       { extends: true, test: { name: 'repo', environment: 'node', include: ['tests/**/*.test.ts'] } },
       { extends: true, test: { name: '@crew/core', root: 'packages/core', environment: 'node' } },
       { extends: true, test: { name: '@crew/sandbox', root: 'packages/sandbox', environment: 'node' } },
+      { extends: true, test: { name: '@crew/trace', root: 'packages/trace', environment: 'node' } },
       {
         extends: true,
         test: { name: 'fernhill-orders', root: 'examples/fernhill-orders', environment: 'node' },
@@ -38,7 +40,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['**/src/**'],
-      exclude: ['**/*.test.*', '**/src/test/**', 'apps/web/src/main.tsx'],
+      exclude: ['**/*.test.*', '**/src/test/**', 'apps/web/src/main.tsx', '.crew/**'],
       // Floors that only go up: engine and rules 80%, screens 60%.
       thresholds: {
         'packages/**/src/**': { lines: 80, functions: 80, branches: 75 },
