@@ -22,7 +22,6 @@ import { RunCard } from '../components/RunCard'
 import { Status } from '../components/Status'
 import { useApi } from '../lib/api'
 import { parseHunks } from '../lib/diff'
-import { bestOf, byVariant, costDigits, headline } from '../lib/evaluation'
 import { durationFixed, percent, sdPoints, tokensLong, usd } from '../lib/format'
 import type { Theme } from '../lib/hooks'
 import { useTitle } from '../lib/hooks'
@@ -40,14 +39,15 @@ import {
 import { Link } from '../lib/router'
 import { toolArg, toolCalls } from '../lib/run'
 import { PHRASE, SHOWCASE_RUN, shareRun, SUB } from '../lib/share'
-import type {
-  EvaluationResponse,
-  EventRow,
-  PlaybookVersion,
-  RunDetail,
-  Variant,
-  VariantStats,
-} from '../lib/types'
+import {
+  leadSet,
+  scoreSets,
+  SET_LABEL,
+  setHeadline,
+  type ScoreSet,
+  type SetVariant,
+} from '../lib/scoreboards'
+import type { EventRow, PlaybookVersion, RunDetail, Variant } from '../lib/types'
 import { VARIANTS } from '../lib/types'
 import { VARIANT_LABEL } from './Runs'
 
@@ -134,14 +134,9 @@ function SecHead({
   )
 }
 
-const ExampleTag = ({ children = 'example numbers' }: { children?: ReactNode }) => (
-  <span className="inline-flex items-center rounded-sm border border-dashed border-warning bg-warning-subtle px-2 text-xs leading-[18px] font-medium text-warning">
-    {children}
-  </span>
-)
-
-function Hero({ run, evaluation }: { run?: RunDetail; evaluation?: EvaluationResponse }) {
-  const sentence = evaluation ? headline(evaluation) : null
+function Hero({ run, sets }: { run?: RunDetail; sets: ScoreSet[] }) {
+  const lead = leadSet(sets)
+  const sentence = lead ? setHeadline(lead) : null
   return (
     <div className="border-b py-16 max-[600px]:py-9">
       <div
@@ -177,7 +172,14 @@ function Hero({ run, evaluation }: { run?: RunDetail; evaluation?: EvaluationRes
           </div>
           <div className="mt-5 flex flex-wrap items-center gap-2.5 text-sm text-muted-foreground">
             {sentence ? <span>{sentence}</span> : <Skeleton className="h-4 w-80" />}
-            {evaluation?.exampleData && <ExampleTag />}
+            {sets.length > 1 && (
+              <a
+                href="#eval"
+                className="inline-flex min-h-6 items-center text-primary underline underline-offset-[3px] max-[760px]:min-h-11"
+              >
+                Both sets
+              </a>
+            )}
           </div>
         </div>
         {run ? (
@@ -510,106 +512,118 @@ function PlaybookSection({ run, versions }: { run?: RunDetail; versions?: Playbo
   )
 }
 
-function EvalSection({ evaluation }: { evaluation?: EvaluationResponse }) {
-  const stats = VARIANTS.map((v) => (evaluation ? byVariant(evaluation.main, v) : undefined)).filter(
-    (s): s is VariantStats => !!s,
-  )
-  const rounds = Math.max(0, ...stats.map((s) => s.rounds))
-  const rows: { name: string; best: Variant[]; cell: (s: VariantStats) => ReactNode }[] = [
+function SetTable({ set }: { set: ScoreSet }) {
+  const stats = VARIANTS.map((v) => set.main.find((m) => m.variant === v)).filter((m): m is SetVariant => !!m)
+  const digits = stats.some((m) => m.costUsdPerRequest.mean < 0.01) ? 4 : 3
+  const best = (pick: (m: SetVariant) => number | null, higher = false): Variant[] => {
+    const values = stats
+      .map((m) => ({ v: m.variant, x: pick(m) }))
+      .filter((e): e is { v: Variant; x: number } => e.x !== null)
+    if (values.length < 2) return []
+    const top = values.reduce((a, b) => ((higher ? b.x > a.x : b.x < a.x) ? b : a)).x
+    const winners = values.filter((e) => Math.abs(e.x - top) < 1e-9).map((e) => e.v)
+    return winners.length === values.length ? [] : winners
+  }
+  const rows: { name: string; best: Variant[]; cell: (m: SetVariant) => ReactNode }[] = [
     {
       name: 'Requests passing all hidden tests',
-      best: bestOf(stats, (s) => s.passRate.mean, true),
-      cell: (s) => `${percent(s.passRate.mean)} ${sdPoints(s.passRate.sd)}`,
+      best: best((m) => m.passRate.mean, true),
+      cell: (m) => `${percent(m.passRate.mean)} ${sdPoints(m.passRate.sd)}`,
     },
     {
       name: 'Cost per request',
-      best: bestOf(stats, (s) => s.costMicrosPerRequest.mean),
-      cell: (s) =>
-        usd(s.costMicrosPerRequest.mean, costDigits(stats.map((x) => x.costMicrosPerRequest.mean))),
+      best: best((m) => m.costUsdPerRequest.mean),
+      cell: (m) => `$${m.costUsdPerRequest.mean.toFixed(digits)}`,
     },
     {
       name: 'Fix loops per request',
-      best: bestOf(stats, (s) => (s.variant === 'single-agent' ? null : s.fixLoopsPerRequest.mean)),
-      cell: (s) =>
-        s.variant === 'single-agent' ? (
+      best: best((m) => (m.variant === 'single-agent' ? null : m.fixLoopsPerRequest.mean)),
+      cell: (m) =>
+        m.variant === 'single-agent' ? (
           <span className="text-muted-foreground">does not apply</span>
         ) : (
-          s.fixLoopsPerRequest.mean.toFixed(1)
+          m.fixLoopsPerRequest.mean.toFixed(2)
         ),
     },
   ]
   return (
+    <div
+      role="region"
+      aria-label={`Evaluation, ${SET_LABEL[set.set]}, by variant`}
+      tabIndex={0}
+      className="overflow-x-auto rounded-lg border bg-card outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+    >
+      <div className="w-max min-w-full">
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead>Metric</TableHead>
+              {stats.map((m) => (
+                <TableHead key={m.variant} className="text-right">
+                  {m.variant === 'crew-playbook'
+                    ? `Crew + playbook v${m.playbookVersion}`
+                    : VARIANT_LABEL[m.variant]}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((r) => (
+              <TableRow key={r.name}>
+                <TableHead scope="row" className="font-medium text-foreground">
+                  {r.name}
+                </TableHead>
+                {stats.map((m) => (
+                  <TableCell key={m.variant} className="text-right font-mono text-[13px] tabular-nums">
+                    {r.best.includes(m.variant) && (
+                      <span className="mr-1.5 inline-flex align-[-2px]">
+                        <Status visual="passed" label={false} text="best" size={14} />
+                      </span>
+                    )}
+                    {r.cell(m)}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  )
+}
+
+function EvalSection({ sets }: { sets: ScoreSet[] }) {
+  return (
     <section aria-labelledby="eval-h" id="eval" className="scroll-mt-4 border-b py-14">
       <div className={WRAP}>
         <SecHead eyebrow="Evaluation" title="Measured against one agent" id="eval-h">
-          {evaluation ? (
-            <>
-              {evaluation.matrix.length} feature requests with hidden acceptance tests. Three variants: one
-              agent doing everything, the crew, and the crew with the playbook. Mean ± standard deviation of{' '}
-              {rounds} rounds.
-              {headline(evaluation) && <> {headline(evaluation)}</>}
-            </>
-          ) : (
-            <Skeleton className="h-12" />
-          )}
+          Feature requests with hidden acceptance tests the agents never see. Three variants run every
+          request: one agent doing everything, the crew, and the crew with the playbook it learned. A request
+          passes when all its hidden tests pass; mean ± standard deviation across rounds. Two sets: the hard
+          one, with requests in two parts that interact, and the easy one, the baseline.
         </SecHead>
-        {stats.length > 0 && (
-          <div
-            role="region"
-            aria-label="Evaluation, by variant"
-            tabIndex={0}
-            className="overflow-x-auto rounded-lg border bg-card outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
-          >
-            <div className="w-max min-w-full">
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead>Metric</TableHead>
-                    {stats.map((s) => (
-                      <TableHead key={s.variant} className="text-right">
-                        {VARIANT_LABEL[s.variant]}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((r) => (
-                    <TableRow key={r.name}>
-                      <TableHead scope="row" className="font-medium text-foreground">
-                        {r.name}
-                      </TableHead>
-                      {stats.map((s) => (
-                        <TableCell key={s.variant} className="text-right font-mono text-[13px] tabular-nums">
-                          {r.best.includes(s.variant) && (
-                            <span className="mr-1.5 inline-flex align-[-2px]">
-                              <Status visual="passed" label={false} text="best" size={14} />
-                            </span>
-                          )}
-                          {r.cell(s)}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+        <div className="grid gap-10">
+          {sets.map((set) => (
+            <div key={set.set} className="grid gap-3">
+              <h3 className="text-base font-semibold">
+                {set.set === 'hard' ? 'Hard set' : 'Easy set · the baseline'}{' '}
+                <span className="font-normal text-muted-foreground">
+                  · {set.requests} requests × {set.rounds} rounds · {set.model} · run {set.runAt.slice(0, 10)}
+                </span>
+              </h3>
+              <p className="max-w-[820px] text-[15px]">{setHeadline(set)}</p>
+              <SetTable set={set} />
+              {set.notes.map((n) => (
+                <p key={n} className="max-w-[820px] text-[13px] text-muted-foreground">
+                  Note: {n}
+                </p>
+              ))}
             </div>
-          </div>
-        )}
-        <p className="mt-5 flex flex-wrap items-center gap-2.5 text-sm text-muted-foreground">
-          {evaluation?.exampleData ? (
-            <span>
-              Example numbers until <code>pnpm eval</code> writes <code>evals/results/latest.json</code>.
-            </span>
-          ) : (
-            evaluation?.finishedAt && (
-              <span>
-                Run {evaluation.finishedAt.slice(0, 10)}
-                {evaluation.model ? ` on ${evaluation.model}` : ''}.
-              </span>
-            )
-          )}
+          ))}
+        </div>
+        <p className="mt-6 flex flex-wrap items-center gap-2.5 text-sm text-muted-foreground">
           <span>
-            Reproduce: <code>pnpm eval</code>
+            Reproduce: <code>pnpm eval</code> and <code>pnpm eval --set hard</code>
           </span>
           <Link
             href="/evaluation"
@@ -763,7 +777,7 @@ export function SiteFooter() {
 export function HowItWorksPage({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () => void }) {
   useTitle('Agent Dev Crew · How it works')
   const run = useApi<RunDetail>(`/api/runs/${SHOWCASE_RUN}`)
-  const evaluation = useApi<EvaluationResponse>('/api/evaluation')
+  const sets = scoreSets()
   const playbook = useApi<{ versions: PlaybookVersion[] }>('/api/playbook')
   return (
     <>
@@ -776,11 +790,11 @@ export function HowItWorksPage({ theme, onToggleTheme }: { theme: Theme; onToggl
       <SiteHeader theme={theme} onToggleTheme={onToggleTheme} />
       <main id="main" tabIndex={-1} className="outline-none">
         <span id="top" />
-        <Hero run={run.data} evaluation={evaluation.data} />
+        <Hero run={run.data} sets={sets} />
         <Pipeline />
         <TraceSection run={run.data} />
         <PlaybookSection run={run.data} versions={playbook.data?.versions} />
-        <EvalSection evaluation={evaluation.data} />
+        <EvalSection sets={sets} />
         <Quickstart budgetMicros={run.data?.run.budget_micros ?? BUDGET_MICROS} />
       </main>
       <SiteFooter />

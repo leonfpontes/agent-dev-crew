@@ -22,8 +22,8 @@ import {
   type Scene,
 } from '../lib/demo-script'
 import { parseDiff, parseHunks } from '../lib/diff'
-import { bestOf, byVariant, costDigits, headline } from '../lib/evaluation'
-import { clock, estimate, percent, sdPoints, usd } from '../lib/format'
+import { leadSet, scoreSets, SET_LABEL, setHeadline } from '../lib/scoreboards'
+import { estimate, percent, sdPoints, usd } from '../lib/format'
 import { useNoIndex, useTitle } from '../lib/hooks'
 import { planFrom, runTotal, spans, toolCalls, toolArg } from '../lib/run'
 import { SHOWCASE_RUN } from '../lib/share'
@@ -287,38 +287,48 @@ function Retro({ p, data }: { p: number; data: Data }) {
   )
 }
 
-function NumberScene({ data }: { data: Data }) {
-  const ev = data.evaluation
-  const stats = VARIANTS.map((v) => byVariant(ev.main, v)).filter((s) => !!s)
-  const best = bestOf(stats, (s) => s.passRate.mean, true)
-  const digits = costDigits(stats.map((s) => s.costMicrosPerRequest.mean))
+function NumberScene() {
+  const sets = scoreSets()
+  const lead = leadSet(sets)
+  if (!lead) return <Frame title="Evaluation">{null}</Frame>
+  const stats = VARIANTS.map((v) => lead.main.find((m) => m.variant === v)).filter((m) => !!m)
+  const top = Math.max(...stats.map((m) => m.passRate.mean))
+  const digits = stats.some((m) => m.costUsdPerRequest.mean < 0.01) ? 4 : 3
+  const others = sets.slice(1)
   return (
-    <Frame title="Evaluation">
+    <Frame title={`Evaluation · ${SET_LABEL[lead.set]}`}>
       <p className="text-[15px] text-muted-foreground">
-        {ev.matrix.length} feature requests with hidden tests × {stats.length} variants ×{' '}
-        {Math.max(...stats.map((s) => s.rounds))} rounds
+        {lead.requests} feature requests with hidden tests × {stats.length} variants × {lead.rounds} rounds ·{' '}
+        {lead.model}
       </p>
-      <h2 className="mt-3 max-w-[1000px] text-[34px] leading-[1.2] font-semibold tracking-[-0.02em]">
-        {headline(ev)}
+      <h2 className="mt-3 max-w-[1100px] text-[32px] leading-[1.2] font-semibold tracking-[-0.02em]">
+        {setHeadline(lead)}
       </h2>
       <div className="mt-6 grid grid-cols-3 gap-4">
-        {stats.map((s) => (
-          <div key={s.variant} className="rounded-xl border bg-card px-5 py-4">
-            <p className="text-[15px] text-muted-foreground">{VARIANT_LABEL[s.variant]}</p>
+        {stats.map((m) => (
+          <div key={m.variant} className="rounded-xl border bg-card px-5 py-4">
+            <p className="text-[15px] text-muted-foreground">
+              {m.variant === 'crew-playbook'
+                ? `Crew + playbook v${m.playbookVersion}`
+                : VARIANT_LABEL[m.variant]}
+            </p>
             <p className="mt-1 flex items-center gap-2 font-mono text-[30px] font-medium">
-              {best.includes(s.variant) && <Status visual="passed" label={false} size={22} />}
-              {percent(s.passRate.mean)}
-              <small className="text-[16px] text-muted-foreground">{sdPoints(s.passRate.sd)}</small>
+              {m.passRate.mean === top && <Status visual="passed" label={false} size={22} />}
+              {percent(m.passRate.mean)}
+              <small className="text-[16px] text-muted-foreground">{sdPoints(m.passRate.sd)}</small>
             </p>
             <p className="font-mono text-[15px] text-muted-foreground">
-              {usd(s.costMicrosPerRequest.mean, digits)} · {clock(s.durationMsPerRequest.mean)} per request
+              ${m.costUsdPerRequest.mean.toFixed(digits)} · {Math.round(m.secondsPerRequest.mean)} s per
+              request
             </p>
           </div>
         ))}
       </div>
-      {ev.exampleData && (
-        <p className="mt-4 text-[15px] text-warning">Example numbers until pnpm eval runs.</p>
-      )}
+      {others.map((o) => (
+        <p key={o.set} className="mt-5 text-[17px] text-muted-foreground">
+          {setHeadline(o)}
+        </p>
+      ))}
     </Frame>
   )
 }
@@ -361,7 +371,7 @@ export function DemoPage() {
   useEffect(() => {
     window.__setTime = (ms: number) => setT(ms)
     if (data) {
-      window.__demoCaptions = { video: videoCaptions(data.evaluation), gif: gifCaptions(data.run) }
+      window.__demoCaptions = { video: videoCaptions(scoreSets()), gif: gifCaptions(data.run) }
       window.__demoReady = true
     }
   }, [data])
@@ -372,7 +382,7 @@ export function DemoPage() {
   const time = Math.min(t, length - 1)
   const scene = sceneAt(scenes, time)
   const p = progress(scene, time)
-  const captions = gif ? gifCaptions(data.run) : videoCaptions(data.evaluation)
+  const captions = gif ? gifCaptions(data.run) : videoCaptions(scoreSets())
   const caption = captions.find((c) => time >= c.from && time < c.to)
 
   let body: ReactNode
@@ -383,7 +393,7 @@ export function DemoPage() {
   else if (scene.id === 'trace') body = <Trace p={p} data={data} />
   else if (scene.id === 'diff') body = <Diff data={data} />
   else if (scene.id === 'retro') body = <Retro p={p} data={data} />
-  else body = <NumberScene data={data} />
+  else body = <NumberScene />
 
   return (
     <div

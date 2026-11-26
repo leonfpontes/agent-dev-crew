@@ -9,8 +9,9 @@ import { Mark } from '../components/icons'
 import { RunCard } from '../components/RunCard'
 import { useApi } from '../lib/api'
 import { useNoIndex, useTitle } from '../lib/hooks'
-import { PHRASE, SHOWCASE_RUN, shareNumbers, shareRun, shareValues } from '../lib/share'
-import type { EvaluationResponse, RunDetail } from '../lib/types'
+import { leadSet, scoreSets, SET_LABEL, setNumbers, type ScoreSet } from '../lib/scoreboards'
+import { PHRASE, SHOWCASE_RUN, shareRun, shareValues } from '../lib/share'
+import type { RunDetail } from '../lib/types'
 
 const ART_SUB =
   'PO, Engineer, Reviewer and QA as a DAG, with a human gate, a cost trace and a playbook of rules you approve.'
@@ -21,7 +22,7 @@ function Art({
   height,
   dark = false,
   footer,
-  evaluation,
+  sets,
   run,
 }: {
   id: string
@@ -29,10 +30,11 @@ function Art({
   height: number
   dark?: boolean
   footer: ReactNode
-  evaluation: EvaluationResponse
+  sets: ScoreSet[]
   run: RunDetail
 }) {
-  const n = shareNumbers(evaluation)
+  const lead = leadSet(sets)
+  const n = lead ? setNumbers(lead) : null
   const og = width === 1200
   return (
     <div
@@ -43,7 +45,7 @@ function Art({
       )}
       style={{ width, height }}
       role="img"
-      aria-label={`Agent Dev Crew. ${PHRASE}${n ? ` Requests passing all hidden tests: one agent ${n.oneAgent}%, ${n.crewLabel} ${n.crew}%, at ${n.costRatio} the cost.` : ''} The trace of an example run.`}
+      aria-label={`Agent Dev Crew. ${PHRASE}${n ? ` On the ${SET_LABEL[n.set]}, requests passing all hidden tests: one agent ${n.oneAgent}%, ${n.crewLabel} ${n.crew}%, at ${n.costRatio} the cost.` : ''} The trace of an example run.`}
     >
       <div
         className={cn(
@@ -76,8 +78,8 @@ function Art({
                 <b className="font-mono font-medium text-foreground">{n.costRatio}</b> the cost
               </p>
               <p className="mt-1 text-[15px]">
-                requests passing all hidden tests · {n.requests} requests × {n.rounds} rounds
-                {n.exampleData ? ' · example numbers' : ''}
+                {SET_LABEL[n.set]} · requests passing all hidden tests · {n.requests} requests × {n.rounds}{' '}
+                rounds
               </p>
             </div>
           )}
@@ -105,12 +107,12 @@ declare global {
 export function SharePage() {
   useNoIndex()
   useTitle('Share images · Agent Dev Crew')
-  const evaluation = useApi<EvaluationResponse>('/api/evaluation')
+  const sets = scoreSets()
   const run = useApi<RunDetail>(`/api/runs/${SHOWCASE_RUN}`)
-  const ready = evaluation.data && run.data
+  const ready = run.data
   useEffect(() => {
-    if (evaluation.data && run.data) window.__shareValues = shareValues(evaluation.data, run.data)
-  }, [evaluation.data, run.data])
+    if (run.data) window.__shareValues = shareValues(scoreSets(), run.data)
+  }, [run.data])
   if (!ready) return <p className="p-6">Loading the scoreboard and run #{SHOWCASE_RUN}…</p>
   const pipeline = (
     <>
@@ -120,7 +122,7 @@ export function SharePage() {
       <span>trace · eval · replay demo</span>
     </>
   )
-  const props = { evaluation: evaluation.data, run: run.data }
+  const props = { sets, run: run.data }
   return (
     <main className="grid justify-start gap-10 bg-secondary p-8">
       <Art

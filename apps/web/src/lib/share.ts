@@ -2,10 +2,10 @@
 // the scoreboard numbers and the trace of one run. scripts/share-images.mjs writes these values
 // next to the images, and tests/share-values.test.ts fails when they fall behind the sources.
 import { clock, usd } from './format'
-import { bestCrew, byVariant, times } from './evaluation'
+import { leadSet, setNumbers, type ScoreSet } from './scoreboards'
 import { parseDiff } from './diff'
 import { stepName, stepTree } from './run'
-import type { EvaluationResponse, RunDetail, StepRow } from './types'
+import type { RunDetail, StepRow } from './types'
 
 /** The one sentence: the site's H1 = the README cover = the social preview = the OG image. */
 export const PHRASE = 'A crew of AI agents takes a feature request to a tested diff. You approve the plan.'
@@ -14,34 +14,6 @@ export const SUB =
 
 /** The run the images and the hero show: the one with the gate, a fix loop and a retro. */
 export const SHOWCASE_RUN = 142
-
-export interface ShareNumbers {
-  requests: number
-  rounds: number
-  oneAgent: number
-  crew: number
-  crewLabel: string
-  costRatio: string
-  exampleData: boolean
-}
-
-/** One agent against the best crew variant, as whole percents of requests passing all hidden tests. */
-export function shareNumbers(data: EvaluationResponse): ShareNumbers | null {
-  const one = byVariant(data.main, 'single-agent')
-  const crew = bestCrew(data.main)
-  if (!one || !crew) return null
-  return {
-    requests: data.matrix.length,
-    rounds: Math.max(0, ...data.main.map((m) => m.rounds)),
-    oneAgent: Math.round(one.passRate.mean * 100),
-    crew: Math.round(crew.passRate.mean * 100),
-    crewLabel: crew.variant === 'crew-playbook' ? 'the crew with the playbook' : 'the crew',
-    costRatio: one.costMicrosPerRequest.mean
-      ? times(crew.costMicrosPerRequest.mean / one.costMicrosPerRequest.mean)
-      : '—',
-    exampleData: data.exampleData,
-  }
-}
 
 export interface CardRow {
   id: number
@@ -120,8 +92,8 @@ function detailLoop(detail: RunDetail, s: StepRow): number {
 }
 
 /** Everything an image says, for the values file and its test. */
-export const shareValues = (data: EvaluationResponse, detail: RunDetail) => ({
+export const shareValues = (sets: ScoreSet[], detail: RunDetail) => ({
   phrase: PHRASE,
-  scoreboard: shareNumbers(data),
+  scoreboard: leadSet(sets) ? setNumbers(leadSet(sets)!) : null,
   run: shareRun(detail),
 })

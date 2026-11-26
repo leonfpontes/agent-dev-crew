@@ -1,13 +1,13 @@
 {
   "phrase": "A crew of AI agents takes a feature request to a tested diff. You approve the plan.",
   "scoreboard": {
-    "requests": 10,
+    "set": "hard",
+    "requests": 8,
     "rounds": 3,
     "oneAgent": 100,
-    "crew": 100,
+    "crew": 88,
     "crewLabel": "the crew",
-    "costRatio": "3.1×",
-    "exampleData": false
+    "costRatio": "1.9×"
   },
   "run": {
     "id": 142,

@@ -10,8 +10,9 @@ import coverDark from '@repo/docs/cover-dark.png?inline'
 import social from '@repo/docs/social-preview.png?inline'
 import og from '@repo/apps/web/public/og.png?inline'
 import { getJson } from './api'
+import { scoreSets } from './scoreboards'
 import { SHOWCASE_RUN, shareValues } from './share'
-import type { EvaluationResponse, RunDetail } from './types'
+import type { RunDetail } from './types'
 import { installApi, renderAt } from '../test/api'
 
 afterEach(cleanup)
@@ -26,9 +27,8 @@ function pngSize(dataUrl: string) {
 describe('share images', () => {
   it('show the numbers of the scoreboard and of the replay run (pnpm share-images when this fails)', async () => {
     installApi({ scoreboard: 'real' })
-    const evaluation = await getJson<EvaluationResponse>('/api/evaluation')
     const run = await getJson<RunDetail>(`/api/runs/${SHOWCASE_RUN}`)
-    expect(values).toEqual(JSON.parse(JSON.stringify(shareValues(evaluation, run))))
+    expect(values).toEqual(JSON.parse(JSON.stringify(shareValues(scoreSets(), run))))
   })
 
   it('have the sizes GitHub, Open Graph and the README expect', () => {

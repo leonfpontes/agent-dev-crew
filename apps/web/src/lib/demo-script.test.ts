@@ -7,16 +7,16 @@ import numbers from '@repo/docs/media/crew-demo.numbers.json'
 import vtt from '@repo/docs/media/crew-demo.en.vtt?raw'
 import { getJson } from './api'
 import { GIF_MS, GIF_SCENES, gifCaptions, VIDEO_MS, VIDEO_SCENES, videoCaptions } from './demo-script'
+import { scoreSets } from './scoreboards'
 import { SHOWCASE_RUN } from './share'
-import type { EvaluationResponse, RunDetail } from './types'
+import type { RunDetail } from './types'
 import { installApi } from '../test/api'
 
 describe('demo media', () => {
   it('carry the captions the scoreboard and the replay run give today (pnpm record-demo when this fails)', async () => {
     installApi({ scoreboard: 'real' })
-    const evaluation = await getJson<EvaluationResponse>('/api/evaluation')
     const run = await getJson<RunDetail>(`/api/runs/${SHOWCASE_RUN}`)
-    expect(numbers).toEqual({ video: videoCaptions(evaluation), gif: gifCaptions(run) })
+    expect(numbers).toEqual({ video: videoCaptions(scoreSets()), gif: gifCaptions(run) })
   })
 
   it('keep every caption to one line of at most 70 characters, on screen for 2.5 s or more', () => {

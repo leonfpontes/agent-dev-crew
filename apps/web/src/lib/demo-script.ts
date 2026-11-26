@@ -2,8 +2,8 @@
 // (English, one line, at most 70 characters, at least 2.5 s on screen). Numbers in captions come
 // from the scoreboard and the replay run; scripts/record-demo.mjs writes the captions it used to
 // docs/media/crew-demo.numbers.json, and a test fails when they fall behind.
-import { shareNumbers } from './share'
-import type { EvaluationResponse, RunDetail } from './types'
+import { leadSet, SET_LABEL, setNumbers, type ScoreSet } from './scoreboards'
+import type { RunDetail } from './types'
 
 export type SceneId = 'problem' | 'runs' | 'terminal' | 'gate' | 'trace' | 'diff' | 'retro' | 'number'
 
@@ -41,10 +41,12 @@ export const GIF_SCENES: Scene[] = [
 ]
 
 /** The caption of the last video scene: the scoreboard in one line. */
-export function numberCaption(evaluation: EvaluationResponse): string {
-  const n = shareNumbers(evaluation)
+export function numberCaption(sets: ScoreSet[]): string {
+  const lead = leadSet(sets)
+  const n = lead ? setNumbers(lead) : null
   if (!n) return 'Run pnpm eval to measure the crew against one agent.'
-  return `Passing: one agent ${n.oneAgent}%, crew ${n.crew}%. The crew costs ${n.costRatio} as much.`
+  const label = SET_LABEL[n.set].charAt(0).toUpperCase() + SET_LABEL[n.set].slice(1)
+  return `${label}: one agent ${n.oneAgent}%, crew ${n.crew}%. The crew costs ${n.costRatio} as much.`
 }
 
 export function hiddenCaption(run: RunDetail): string {
@@ -54,7 +56,7 @@ export function hiddenCaption(run: RunDetail): string {
     : `A tested diff: ${p} of ${t} hidden tests pass.`
 }
 
-export function videoCaptions(evaluation: EvaluationResponse): Caption[] {
+export function videoCaptions(sets: ScoreSet[]): Caption[] {
   return [
     { from: 0, to: 5_000, text: 'Coding agents write code. Who checks the plan, the cost and the tests?' },
     {
@@ -70,7 +72,7 @@ export function videoCaptions(evaluation: EvaluationResponse): Caption[] {
       to: 50_000,
       text: 'A run can propose a rule. It joins the playbook only if you approve.',
     },
-    { from: 50_000, to: 60_000, text: numberCaption(evaluation) },
+    { from: 50_000, to: 60_000, text: numberCaption(sets) },
   ]
 }
 

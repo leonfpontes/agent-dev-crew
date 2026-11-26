@@ -78,7 +78,13 @@ function sentences({ set, results: r }: Scoreboard): string[] {
     )
   else
     out.push(
-      `In ${learningRuns} learning runs the retro proposed ${lessons} lessons; ${accepted} became rules, taking the playbook to v${r.playbook.learnedVersion}.${learned ? ` With it, the crew passed ${pm(learned.passRate)}.` : ''}`,
+      `In ${learningRuns} learning runs the retro proposed ${lessons} lessons; ${accepted} became rules, taking the playbook to v${r.playbook.learnedVersion}.${
+        learned && crew
+          ? learned.passRate.mean > crew.passRate.mean + learned.passRate.sd + crew.passRate.sd
+            ? ` With it, the crew passed ${pm(learned.passRate)}, up from ${pm(crew.passRate)} without it.`
+            : ` The rules did not make the crew better: with them it passed ${pm(learned.passRate)}, against ${pm(crew.passRate)} without them.`
+          : ''
+      }`,
     )
   if (one && crew) {
     const best = learned && learned.passRate.mean > crew.passRate.mean ? learned : crew
@@ -92,7 +98,10 @@ function sentences({ set, results: r }: Scoreboard): string[] {
       out.push(
         `Here the crew earns its cost: ${Math.round((best.passRate.mean - one.passRate.mean) * 100)} points more requests pass than with one agent.`,
       )
-    else out.push(`Here one agent does better than the crew, and costs less.`)
+    else
+      out.push(
+        `Here one agent does better than the crew (${pm(one.passRate)} vs ${pm(best.passRate)}), and costs less.`,
+      )
   }
   out.push(
     `The whole evaluation, ${r.runs.length} runs, cost $${r.spentUsd.total.toFixed(2)} under a hard $${r.budgetUsd.total.toFixed(2)} cap.`,
@@ -111,9 +120,10 @@ function table(r: Results): string[] {
   ]
 }
 
-/** The block between the markers, from the scoreboards (easy first). Formatted as Prettier would. */
+/** The block between the markers, from the scoreboards (hard first). Formatted as Prettier would. */
 export function scoreboardBlock(boards: Scoreboard[]): string {
-  const sorted = [...boards].sort((a, b) => (a.set === b.set ? 0 : a.set === 'easy' ? -1 : 1))
+  // The hard set first: it is the stronger test.
+  const sorted = [...boards].sort((a, b) => (a.set === b.set ? 0 : a.set === 'hard' ? -1 : 1))
   const parts: string[] = [START, '']
   for (const b of sorted) {
     const r = b.results
@@ -123,6 +133,7 @@ export function scoreboardBlock(boards: Scoreboard[]): string {
       ...sentences(b).flatMap((s) => [s, '']),
       ...table(r),
       '',
+      ...((r as Results & { notes?: string[] }).notes?.flatMap((n) => [`> Note: ${n}`, '']) ?? []),
       `${r.model} (fallback ${r.fallbackModel ?? 'none'}) · ${r.requests} requests × ${r.main.length} variants × ${r.rounds} rounds · run ${r.runAt.slice(0, 10)} · mean ± standard deviation across rounds · [full results](${b.file.replace(/\.json$/, '.md')})`,
       '',
     )
