@@ -11,42 +11,35 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
-import { parseArgs } from 'node:util'
 import { fileURLToPath } from 'node:url'
 
 import { anthropicPrice, createAnthropicProvider, MODELS, promptVersion, repoRefOf } from '@crew/engine'
 import { migrate, openTrace } from '@crew/trace'
 
+import { parseEvalArgs } from './args.js'
 import { runEvaluation, RUN_BUDGET_MICROS } from './harness.js'
 import { loadRequests } from './requests.js'
 import { buildResults, toMarkdown, type ResultsMeta } from './results.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-const { values } = parseArgs({
-  options: {
-    rounds: { type: 'string', default: '3' },
-    epochs: { type: 'string', default: '3' },
-    budget: { type: 'string', default: '5' },
-    'curve-budget': { type: 'string', default: '3' },
-    concurrency: { type: 'string', default: '6' },
-    requests: { type: 'string' },
-    trace: { type: 'string', default: path.join(root, '.crew/eval.sqlite') },
-    out: { type: 'string', default: path.join(root, 'evals/results') },
-    report: { type: 'boolean', default: false },
-  },
+// Every number is checked before anything runs: a budget that isn't a number would lift the cap.
+const args = parseEvalArgs(process.argv.slice(2), {
+  trace: path.join(root, '.crew/eval.sqlite'),
+  out: path.join(root, 'evals/results'),
 })
+const values = { trace: args.trace, out: args.out, report: args.report }
 
-const micros = (usd: string) => Math.round(Number(usd) * 1_000_000)
+const micros = (usd: number) => Math.round(usd * 1_000_000)
 const requestsDir = path.join(root, 'evals/requests')
 const exampleDir = path.join(root, 'examples/fernhill-orders')
 const metaFile = `${values.trace}.meta.json`
 
 const { requests: all, problems } = loadRequests(requestsDir, exampleDir)
 if (problems.length) throw new Error(`The requests folder has problems:\n${problems.join('\n')}`)
-const wanted = values.requests?.split(',')
+const wanted = args.requests
 const requests = wanted ? all.filter((r) => wanted.includes(r.id)) : all
 if (wanted && requests.length !== wanted.length)
-  throw new Error(`Unknown request in --requests ${values.requests}`)
+  throw new Error(`Unknown request in --requests ${wanted.join(',')}`)
 
 let meta: ResultsMeta
 if (values.report) {
@@ -61,7 +54,7 @@ if (values.report) {
   migrate(trace)
   const workRoot = path.join(path.dirname(values.trace), 'eval-runs')
   const runAt = new Date().toISOString()
-  const concurrency = Number(values.concurrency)
+  const concurrency = args.concurrency
   const outcome = await runEvaluation({
     trace,
     provider: createAnthropicProvider({ apiKey }),
@@ -70,10 +63,10 @@ if (values.report) {
     requestsDir,
     exampleDir,
     workRoot,
-    rounds: Number(values.rounds),
-    epochs: Number(values.epochs),
-    totalBudgetMicros: micros(values.budget),
-    curveBudgetMicros: micros(values['curve-budget']),
+    rounds: args.rounds,
+    epochs: args.epochs,
+    totalBudgetMicros: micros(args.budgetUsd),
+    curveBudgetMicros: micros(args.curveBudgetUsd),
     concurrency,
     log: (line) => console.log(`${new Date().toISOString().slice(11, 19)} ${line}`),
   })
@@ -86,11 +79,11 @@ if (values.report) {
     promptVersion: promptVersion(),
     repoRef: repoRefOf(exampleDir),
     requests: requests.length,
-    rounds: Number(values.rounds),
+    rounds: args.rounds,
     concurrency,
     budgetUsd: {
-      total: Number(values.budget),
-      learningCurve: Number(values['curve-budget']),
+      total: args.budgetUsd,
+      learningCurve: args.curveBudgetUsd,
       perRun: RUN_BUDGET_MICROS / 1_000_000,
     },
     stoppedEarly: outcome.stoppedEarly,

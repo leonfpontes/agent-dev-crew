@@ -196,6 +196,26 @@ describe('runEvaluation', () => {
     trace.close()
   }, 240_000)
 
+  it('refuses rounds, epochs or runs at once that are not whole numbers of 1 or more', async () => {
+    const { trace, dir } = setup()
+    const base = {
+      trace,
+      provider: provider(),
+      price: flatPrice(1, 5),
+      requests: one,
+      requestsDir,
+      exampleDir,
+      workRoot: path.join(dir, 'runs'),
+      roles,
+    }
+    await expect(runEvaluation({ ...base, rounds: 0 })).rejects.toThrow('rounds must be a whole number')
+    await expect(runEvaluation({ ...base, concurrency: Number.NaN })).rejects.toThrow(
+      'concurrency must be a whole number',
+    )
+    await expect(runEvaluation({ ...base, totalBudgetMicros: Number.NaN })).rejects.toThrow('finite amount')
+    trace.close()
+  })
+
   it('starts no run once the budget left is under one run’s budget, and says it stopped early', async () => {
     const { trace, dir } = setup()
     const scripted = provider()

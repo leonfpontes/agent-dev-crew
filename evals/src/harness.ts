@@ -93,7 +93,12 @@ export class Budget {
   constructor(
     readonly total: number,
     readonly caps: Partial<Record<EvalSuite, number>>,
-  ) {}
+  ) {
+    // NaN would make every "spent + run > cap" check false and lift the cap: refuse it here too.
+    for (const cap of [total, ...Object.values(caps)])
+      if (!Number.isFinite(cap) || (cap as number) <= 0)
+        throw new Error(`A budget must be a finite amount above 0, got ${cap}.`)
+  }
 
   reserve(suite: EvalSuite, micros: number): boolean {
     if (this.spent + this.reserved + micros > this.total) return false
@@ -132,6 +137,9 @@ export async function runEvaluation(options: EvalOptions): Promise<EvalOutcome> 
     runBudgetMicros = RUN_BUDGET_MICROS,
     concurrency = 6,
   } = options
+  for (const [name, n] of Object.entries({ rounds, epochs, concurrency, runBudgetMicros }))
+    if (!Number.isSafeInteger(n) || n < 1)
+      throw new Error(`${name} must be a whole number of 1 or more, got ${n}.`)
   const log = options.log ?? (() => {})
   const now = options.now ?? (() => new Date())
   const roles = options.roles ?? createRoleSpecs()

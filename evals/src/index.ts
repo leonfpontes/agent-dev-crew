@@ -22,3 +22,4 @@ export { Budget, CURVE_ROUND_BASE, MAIN_VARIANTS, pool, runEvaluation, RUN_BUDGE
 export type { EvalJob, EvalOptions, EvalOutcome } from './harness.js'
 export { buildResults, parseResults, ResultsSchema, RESULTS_SCHEMA_VERSION, toMarkdown } from './results.js'
 export type { Results, ResultsMeta, VariantResult } from './results.js'
+export { MAX_BUDGET_USD, parseEvalArgs, type EvalArgs } from './args.js'

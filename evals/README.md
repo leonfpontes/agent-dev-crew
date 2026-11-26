@@ -18,6 +18,13 @@ pnpm eval --requests cancel-order --rounds 1 --epochs 1 --budget 1.2 --curve-bud
 pnpm eval --report                                  # rewrite results/ from the last trace, no API call
 ```
 
+Every number is checked before any call: budgets must be dollars above 0 (above $20 needs
+`--confirm-budget`), rounds, epochs and `--concurrency` whole numbers of 1 or more.
+
+```bash
+pnpm eval --budget 5$                               # refused: "--budget must be a number of dollars above 0"
+```
+
 ## Method
 
 | Step           | What happens                                                                                                                                                                                                                                                                                                                                                                     |
