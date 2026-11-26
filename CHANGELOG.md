@@ -10,6 +10,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions: [Sem
 
 ### Fixed
 
+- The sandboxed test runner works on Linux (Vite's WSL probe is allowed, by exact path), and when the runner fails it names its own error instead of Node's permission warnings.
+
 - The sandbox no longer reads the real repository through pnpm's workspace links: the test runner reads only the store folders of its own dependencies.
 - On Vercel only the app's routes open the app; any other path answers a real 404 (with the app's 404 page).
 

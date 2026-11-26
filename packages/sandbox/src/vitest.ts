@@ -134,6 +134,29 @@ const firstLine = (text: string) =>
     ?.trim()
     .slice(0, 300) ?? ''
 
+/** Node's own warnings (the permission flags print two): never the reason a run failed. */
+const NODE_WARNING = /^\(node:\d+\) |^\(Use `node --trace/
+/** Terminal colour codes (ESC [ … m). */
+const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g')
+
+/** Why the runner itself failed: its first error line, else its first line that isn't a warning. */
+export function runnerError(output: string): string {
+  const lines = output
+    .replace(ANSI, '')
+    .split('\n')
+    .map((l) => l.trim())
+  const useful = lines.filter((l) => l && !NODE_WARNING.test(l) && !/^⎯+/.test(l))
+  return (useful.find((l) => /\b\w*Error\b/.test(l)) ?? useful[0] ?? '').slice(0, 300)
+}
+
+/**
+ * Files the runner probes outside the copy, by platform: on Linux, Vite asks whether it runs in WSL
+ * with `existsSync`, which the permission model turns into a thrown error instead of `false`. Exact
+ * paths only, which say nothing about the machine beyond "WSL or not".
+ */
+export const PLATFORM_READS: readonly string[] =
+  process.platform === 'linux' ? ['/proc/sys/fs/binfmt_misc/WSLInterop', '/run/WSL'] : []
+
 /** Runs the tests matching `include` in the sandbox and reads the report. */
 export async function runVitest(
   repoDir: string,
@@ -146,7 +169,12 @@ export async function runVitest(
   const started = Date.now()
   const result = await runNodeScript(
     vitestEntry(),
-    { read: [repo, ...runnerReadDirs()], write: [repo], childProcesses: true, addons: true },
+    {
+      read: [repo, ...runnerReadDirs(), ...PLATFORM_READS],
+      write: [repo],
+      childProcesses: true,
+      addons: true,
+    },
     { cwd: repo, timeoutMs },
     ['run', '--root', repo, '--configLoader', 'native'],
   )
@@ -157,7 +185,7 @@ export async function runVitest(
   } catch {
     const reason = result.timedOut
       ? `the tests ran past ${timeoutMs} ms`
-      : firstLine(result.stderr || result.stdout)
+      : runnerError(result.stderr) || runnerError(result.stdout)
     return {
       passed: 0,
       failed: 0,

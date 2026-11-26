@@ -19,6 +19,7 @@ import {
   permissionFlags,
   prepareForVitest,
   runNodeScript,
+  runnerError,
   runnerReadDirs,
   runVitest,
 } from './index.js'
@@ -42,6 +43,25 @@ const script = (name: string, code: string) => {
 const policy = { read: [box], write: [work] }
 const run = async (name: string, code: string, options = {}) =>
   (await runNodeScript(script(name, code), policy, options)).stdout.trim()
+
+describe('runnerError', () => {
+  it("names the runner's error, not the warnings Node prints for the permission flags", () => {
+    const stderr = [
+      '(node:79) [PERM0001] SecurityWarning: The flag --allow-addons must be used with extreme caution.',
+      '(Use `node --trace-warnings ...` to show where the warning was created)',
+      '(node:79) [PERM0002] SecurityWarning: The flag --allow-child-process must be used with extreme caution.',
+      '',
+      '\x1b[31m⎯⎯⎯⎯⎯⎯⎯\x1b[39m Startup Error ⎯⎯⎯⎯',
+      'Error: Access to this API has been restricted. Use --allow-fs-read to manage permissions.',
+      '    at Object.existsSync (node:fs:293:18)',
+    ].join('\n')
+    expect(runnerError(stderr)).toBe(
+      'Error: Access to this API has been restricted. Use --allow-fs-read to manage permissions.',
+    )
+    expect(runnerError('(node:1) SecurityWarning: x\nsomething went wrong')).toBe('something went wrong')
+    expect(runnerError('(node:1) SecurityWarning: x\n')).toBe('')
+  })
+})
 
 describe('permissionFlags', () => {
   it('turns the policy into Node permission flags, with the blocker readable', () => {

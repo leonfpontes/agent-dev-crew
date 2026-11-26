@@ -2,7 +2,9 @@ export { BLOCKER, permissionFlags, realPath, sandboxEnv, type SandboxPolicy } fr
 export { runNodeScript, type RunOptions, type SandboxResult } from './run.js'
 export {
   nodeModulesDir,
+  PLATFORM_READS,
   prepareForVitest,
+  runnerError,
   runnerReadDirs,
   runVitest,
   type TestFailure,
