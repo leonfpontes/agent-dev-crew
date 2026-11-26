@@ -3,7 +3,7 @@
 // from the scoreboard and the replay run; scripts/record-demo.mjs writes the captions it used to
 // docs/media/crew-demo.numbers.json, and a test fails when they fall behind.
 import { leadSet, SET_LABEL, setNumbers, type ScoreSet } from './scoreboards'
-import type { RunDetail } from './types'
+import type { Plan, RunDetail } from './types'
 
 export type SceneId = 'problem' | 'runs' | 'terminal' | 'gate' | 'trace' | 'diff' | 'retro' | 'number'
 
@@ -98,3 +98,33 @@ export const sceneAt = (scenes: Scene[], t: number) =>
 /** 0 at the start of the scene, 1 at its end. */
 export const progress = (scene: Scene, t: number) =>
   Math.min(1, Math.max(0, (t - scene.from) / (scene.to - scene.from)))
+
+/**
+ * The terminal of the GIF and the video: what `pnpm crew run` prints (packages/api/src/cli.ts), line
+ * for line, for a run of the trace. `head` runs to the gate's question; `gate` is the answer and, after
+ * the run, the CLI's last two lines.
+ */
+export function terminalLines(detail: RunDetail, plan: Plan | null): { head: string[]; gate: string[] } {
+  const { run, steps } = detail
+  const spent = steps.find((s) => s.kind === 'plan')?.cost_micros ?? 0
+  const cost = steps.reduce((a, s) => a + s.cost_micros, 0)
+  const variant = run.variant === 'crew' ? '' : ` --variant ${run.variant}`
+  const head = [
+    `$ pnpm crew run "${run.title}"${variant}`,
+    `Run #${run.id} started (${run.variant}).`,
+    '',
+    'Plan:',
+    ...(plan?.steps ?? []).map((s, i) => `  ${i + 1}. ${s}`),
+    'Acceptance:',
+    ...(plan?.acceptance ?? []).map((a) => `  - ${a}`),
+    `Files: ${plan?.files.join(', ') || '—'} · estimate $${plan?.estimateUsd ?? '—'} of $${((run.budget_micros - spent) / 1e6).toFixed(3)} left`,
+  ]
+  const tests = run.tests_total === null ? 'no tests' : `${run.tests_passed} / ${run.tests_total} tests`
+  const gate = [
+    'Approve (y), request changes (c) or reject (n)? y',
+    '',
+    `Run #${run.id}: ${run.status}${run.failure_reason ? ` (${run.failure_reason})` : ''} · ${tests} · $${(cost / 1e6).toFixed(4)}`,
+    'See it with: pnpm crew serve --live',
+  ]
+  return { head, gate }
+}

@@ -1,10 +1,11 @@
-import { cleanup, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { leadSet, scoreSets, setHeadline } from '../lib/scoreboards'
 import { MODELS, ROLES } from '../lib/landing'
 import { PHRASE } from '../lib/share'
 import { installApi, renderAt } from '../test/api'
+import { HowItWorksPage } from './HowItWorks'
 import { axe } from '../test/axe'
 
 afterEach(cleanup)
@@ -67,5 +68,19 @@ describe('How it works', () => {
       'https://github.com/leonfpontes/agent-dev-crew',
     )
     expect(await axe(document.body)).toEqual([])
+  })
+})
+
+describe('How it works · before the first evaluation', () => {
+  it('says there is no scoreboard yet and gives the command, instead of pointing at a set that is not there', async () => {
+    installApi()
+    render(<HowItWorksPage theme="light" onToggleTheme={() => {}} sets={[]} />)
+    const section = screen.getByRole('heading', { name: 'Measured against one agent' }).closest('section')!
+    expect(section.textContent).toContain('No scoreboard is measured yet')
+    expect(section.textContent).not.toContain('Below, the hard set')
+    expect(section.textContent).not.toContain('one link away')
+    expect(within(section).queryByRole('region', { name: /^Evaluation, / })).toBeNull()
+    expect(within(section).getAllByText(/^pnpm eval/).length).toBeGreaterThan(0)
+    expect(screen.getByText(/No scoreboard yet/)).toBeTruthy()
   })
 })

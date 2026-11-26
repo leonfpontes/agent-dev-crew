@@ -64,8 +64,7 @@ export function sdPoints(sd: number): string {
   return `± ${Math.round(sd * 100)}`
 }
 
-/** "$0.02–0.05" for a range, "$0.04" for one estimate. */
-export function estimate(value: number | [number, number]): string {
-  if (Array.isArray(value)) return `$${value[0].toFixed(2)}–${value[1].toFixed(2)}`
+/** The PO's cost estimate, "$0.04". */
+export function estimate(value: number): string {
   return `$${value.toFixed(2)}`
 }

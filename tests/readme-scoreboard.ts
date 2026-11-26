@@ -115,7 +115,7 @@ function table(r: Results): string[] {
     '| --- | --: | --: | --: | --: |',
     ...r.main.map(
       (m) =>
-        `| ${m.variant === 'crew-playbook' ? `${NAMES[m.variant]} v${m.playbookVersion}` : NAMES[m.variant]} | ${pm(m.passRate)} | ${money(m.costUsdPerRequest.mean)} | ${Math.round(m.secondsPerRequest.mean)} s | ${m.fixLoopsPerRequest.mean.toFixed(2)} |`,
+        `| ${m.variant === 'crew-playbook' ? `${NAMES[m.variant]} v${m.playbookVersion}` : NAMES[m.variant]} | ${pm(m.passRate)} | ${money(m.costUsdPerRequest.mean)} | ${Math.round(m.secondsPerRequest.mean)} s | ${m.variant === 'single-agent' ? 'does not apply' : m.fixLoopsPerRequest.mean.toFixed(2)} |`,
     ),
   ]
 }

@@ -90,7 +90,7 @@ const PLAN_142 = {
     'The daily total leaves cancelled orders out.',
   ],
   files: ['src/types.ts', 'src/routes/orders.ts', 'src/reports/daily-total.ts'],
-  estimateUsd: [0.03, 0.06],
+  estimateUsd: 0.05,
 }
 
 const PLAN_143 = {
@@ -105,7 +105,7 @@ const PLAN_143 = {
     'Existing cart tests still pass.',
   ],
   files: ['src/routes/cart.ts', 'tests/cart.test.ts'],
-  estimateUsd: [0.02, 0.05],
+  estimateUsd: 0.04,
 }
 
 const FAILING_QA_142 = [

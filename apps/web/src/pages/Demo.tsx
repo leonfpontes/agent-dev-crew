@@ -17,13 +17,14 @@ import {
   sceneAt,
   VIDEO_MS,
   VIDEO_SCENES,
+  terminalLines,
   videoCaptions,
   type Caption,
   type Scene,
 } from '../lib/demo-script'
 import { parseDiff, parseHunks } from '../lib/diff'
 import { leadSet, scoreSets, SET_LABEL, setHeadline } from '../lib/scoreboards'
-import { estimate, percent, sdPoints, usd } from '../lib/format'
+import { percent, sdPoints, usd } from '../lib/format'
 import { useNoIndex, useTitle } from '../lib/hooks'
 import { planFrom, runTotal, spans, toolCalls, toolArg } from '../lib/run'
 import { SHOWCASE_RUN } from '../lib/share'
@@ -129,22 +130,7 @@ function RunsList({ runs }: { runs: RunsResponse }) {
 
 function Terminal({ p, data, withGate }: { p: number; data: Data; withGate: boolean }) {
   const plan = planFrom(data.run, data.plan)
-  const budget =
-    data.run.run.budget_micros - (data.run.steps.find((s) => s.kind === 'plan')?.cost_micros ?? 0)
-  const head = [
-    `$ pnpm crew run "${data.run.run.title}"`,
-    `Run #${data.run.run.id} started (crew).`,
-    '',
-    'Plan:',
-    ...(plan?.steps ?? []).map((s, i) => `  ${i + 1}. ${s}`),
-    'Acceptance:',
-    ...(plan?.acceptance ?? []).map((s) => `  - ${s}`),
-    `Files: ${plan?.files.join(', ') ?? '—'} · estimate ${plan ? estimate(plan.estimateUsd) : '—'} of ${usd(budget)} left`,
-  ]
-  const gate = [
-    'Approve (y), request changes (c) or reject (n)? y',
-    'Approved. The Engineer starts on a throwaway copy.',
-  ]
+  const { head, gate } = terminalLines(data.run, plan)
   const all = withGate ? [...head, ...gate] : head
   // Typing: the characters shown grow with the scene's progress; the gate scene starts typed.
   const total = all.join('\n').length

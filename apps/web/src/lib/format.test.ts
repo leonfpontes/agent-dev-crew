@@ -47,7 +47,6 @@ describe('formats', () => {
   it('shares and estimates', () => {
     expect(percent(0.7667)).toBe('77%')
     expect(sdPoints(0.0577)).toBe('± 6')
-    expect(estimate([0.02, 0.05])).toBe('$0.02–0.05')
     expect(estimate(0.04)).toBe('$0.04')
   })
 })

@@ -86,7 +86,7 @@ The whole evaluation, 96 runs, cost $4.90 under a hard $5.52 cap.
 
 | Variant             | Requests passing | Cost per request | Time per request | Fix loops per request |
 | ------------------- | ---------------: | ---------------: | ---------------: | --------------------: |
-| Single agent        |         100% ± 0 |          $0.0274 |            145 s |                  0.00 |
+| Single agent        |         100% ± 0 |          $0.0274 |            145 s |        does not apply |
 | Crew, no playbook   |          88% ± 0 |          $0.0529 |            252 s |                  0.04 |
 | Crew + playbook v12 |          83% ± 7 |          $0.0640 |            312 s |                  0.04 |
 
@@ -106,7 +106,7 @@ The whole evaluation, 100 runs, cost $1.29 under a hard $4.90 cap.
 
 | Variant            | Requests passing | Cost per request | Time per request | Fix loops per request |
 | ------------------ | ---------------: | ---------------: | ---------------: | --------------------: |
-| Single agent       |         100% ± 0 |          $0.0054 |             27 s |                  0.00 |
+| Single agent       |         100% ± 0 |          $0.0054 |             27 s |        does not apply |
 | Crew, no playbook  |         100% ± 0 |          $0.0166 |             72 s |                  0.07 |
 | Crew + playbook v1 |          97% ± 6 |          $0.0159 |             69 s |                  0.00 |
 

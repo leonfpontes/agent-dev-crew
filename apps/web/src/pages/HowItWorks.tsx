@@ -171,7 +171,13 @@ function Hero({ run, sets }: { run?: RunDetail; sets: ScoreSet[] }) {
             </Button>
           </div>
           <div className="mt-5 flex flex-wrap items-center gap-2.5 text-sm text-muted-foreground">
-            {sentence ? <span>{sentence}</span> : <Skeleton className="h-4 w-80" />}
+            {sentence ? (
+              <span>{sentence}</span>
+            ) : (
+              <span>
+                No scoreboard yet: <code>pnpm eval</code> measures the crew against one agent.
+              </span>
+            )}
             {sets.length > 1 && (
               <a
                 href="#eval"
@@ -600,8 +606,12 @@ function EvalSection({ sets }: { sets: ScoreSet[] }) {
         <SecHead eyebrow="Evaluation" title="Measured against one agent" id="eval-h">
           Feature requests with hidden acceptance tests the agents never see. Three variants run every
           request: one agent doing everything, the crew, and the crew with the playbook it learned. A request
-          passes when all its hidden tests pass; mean ± standard deviation across rounds. Below, the hard set:
-          requests in two parts that interact. The easy set, the baseline, is one link away.
+          passes when all its hidden tests pass; mean ± standard deviation across rounds.{' '}
+          {sets.length === 0
+            ? 'No scoreboard is measured yet in this copy of the repository: run the evaluation below to make one.'
+            : sets[0]!.set === 'hard'
+              ? `Below, the hard set: requests in two parts that interact.${sets.length > 1 ? ' The easy set, the baseline, is one link away.' : ''}`
+              : `Below, the easy set.${sets.length > 1 ? ' The hard set is one link away.' : ''}`}
         </SecHead>
         <div className="grid gap-10">
           {sets.slice(0, 1).map((set) => (
@@ -784,10 +794,18 @@ export function SiteFooter() {
   )
 }
 
-export function HowItWorksPage({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () => void }) {
+export function HowItWorksPage({
+  theme,
+  onToggleTheme,
+  sets = scoreSets(),
+}: {
+  theme: Theme
+  onToggleTheme: () => void
+  /** The scoreboards of evals/results (tests pass their own, such as none). */
+  sets?: ScoreSet[]
+}) {
   useTitle('Agent Dev Crew · How it works')
   const run = useApi<RunDetail>(`/api/runs/${SHOWCASE_RUN}`)
-  const sets = scoreSets()
   const playbook = useApi<{ versions: PlaybookVersion[] }>('/api/playbook')
   return (
     <>

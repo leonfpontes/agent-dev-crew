@@ -122,12 +122,12 @@ export interface Lesson {
   duplicate_of: number | null
 }
 
-/** The PO plan. The engine records one estimate; recorded runs may carry a range. */
+/** The PO plan, as submit_plan records it: one cost estimate in USD. */
 export interface Plan {
   steps: string[]
   acceptance: string[]
   files: string[]
-  estimateUsd: number | [number, number]
+  estimateUsd: number
 }
 
 export interface RunDetail {
