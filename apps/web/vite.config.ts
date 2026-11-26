@@ -7,6 +7,8 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   // Workspace packages resolve to their source (see tsconfig.base.json, "crew-source").
   resolve: { conditions: ['crew-source', ...defaultClientConditions] },
+  // pnpm dev: the API runs on its own (pnpm crew serve, or CREW_API for another port).
+  server: { proxy: { '/api': process.env.CREW_API ?? 'http://127.0.0.1:8787' } },
   build: {
     rollupOptions: {
       onwarn(warning, warn) {
@@ -16,5 +18,5 @@ export default defineConfig({
       },
     },
   },
-  test: { name: '@crew/web', environment: 'jsdom' },
+  test: { name: '@crew/web', environment: 'jsdom', setupFiles: ['src/test/setup.ts'] },
 })

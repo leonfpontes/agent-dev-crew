@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24">
+  <style>.t{fill:#161A22}.g{fill:#A3266F}@media (prefers-color-scheme: dark){.t{fill:#E8EBF1}.g{fill:#E58CF0}}</style>
+  <rect class="t" x="2" y="2" width="9" height="9" rx="2"/><rect class="t" x="13" y="2" width="9" height="9" rx="2"/><rect class="t" x="2" y="13" width="9" height="9" rx="2"/><path class="g" d="M17.5 12.2l5.3 5.3-5.3 5.3-5.3-5.3z"/>
+</svg>

@@ -3,7 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="A team of AI agents takes a feature request to a tested diff, with a human gate, a cost trace and a playbook that learns."
+    />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <title>Agent Dev Crew</title>
+    <script>
+      // The theme before the first paint: ?dark / ?theme=, then the saved choice, then the system.
+      try {
+        var q = new URLSearchParams(location.search),
+          s = localStorage.getItem('crew-theme')
+        var dark = q.has('dark') || q.get('theme') === 'dark'
+        var light = q.has('light') || q.get('theme') === 'light'
+        if (dark || (!light && (s === 'dark' || (!s && matchMedia('(prefers-color-scheme: dark)').matches))))
+          document.documentElement.classList.add('dark')
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>
