@@ -8,6 +8,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vites
 import {
   createApi,
   createLiveRunner,
+  createPlaybookDecider,
   HOW_TO_RUN_LIVE,
   liveAvailability,
   loadReplay,
@@ -167,7 +168,12 @@ describe('replay mode', () => {
 describe('replay with the real scoreboard', () => {
   const results = JSON.parse(readFileSync(path.join(ROOT, 'evals', 'results', 'latest.json'), 'utf8'))
   const replay = loadReplay({ evaluation: results })
-  const api = createApi({ trace: replay.trace, mode: 'replay', exampleData: replay.exampleData })
+  const api = createApi({
+    trace: replay.trace,
+    mode: 'replay',
+    exampleData: replay.exampleData,
+    evaluationMeta: replay.evaluationMeta,
+  })
 
   it('serves the measured evaluation, not the example numbers, and says so', async () => {
     expect(replay.exampleData).toBe(false)
@@ -185,8 +191,96 @@ describe('replay with the real scoreboard', () => {
     expect((await get(api, '/api/meta')).body.exampleData).toBe(false)
   })
 
+  it('adds the model, the cost limit and the finish time of the scoreboard', async () => {
+    const evaluation = (await get(api, '/api/evaluation')).body
+    expect(evaluation).toMatchObject({
+      model: results.model,
+      limitUsd: results.budgetUsd.total,
+      finishedAt: results.runAt,
+    })
+    const example = createApi({ trace: openReplay(), mode: 'replay' })
+    expect((await get(example, '/api/evaluation')).body).not.toHaveProperty('model')
+  })
+
+  it('points every recorded run at a playbook version that exists', async () => {
+    const versions = new Set(
+      (await get(api, '/api/playbook')).body.versions.map((v: { version: number }) => v.version),
+    )
+    for (const run of (await get(api, '/api/runs')).body.runs as { playbook_version: number | null }[]) {
+      if (run.playbook_version !== null) expect(versions.has(run.playbook_version)).toBe(true)
+    }
+  })
+
   it('keeps the recorded runs for the Runs screen', async () => {
     expect((await get(api, '/api/runs')).body.runs.length).toBeGreaterThan(0)
+  })
+})
+
+describe('live mode · playbook decisions', () => {
+  const results = JSON.parse(readFileSync(path.join(ROOT, 'evals', 'results', 'latest.json'), 'utf8'))
+  const setup = () => {
+    const { trace } = loadReplay({ evaluation: results })
+    const api = createApi({
+      trace,
+      mode: 'live',
+      live: { available: true },
+      playbook: createPlaybookDecider(trace),
+    })
+    const proposed = (
+      trace.prepare("SELECT version FROM playbook_versions WHERE status = 'proposed'").get() as {
+        version: number
+      }
+    ).version
+    return { trace, api, proposed }
+  }
+
+  it('approves an edited rule: the content, the diff and the lesson keep what was approved', async () => {
+    const { trace, api, proposed } = setup()
+    const rule = 'Run the daily total report test after any change to order statuses.'
+    expect(await post(api, `/api/playbook/${proposed}`, { decision: 'approve', rule })).toMatchObject({
+      status: 200,
+      body: { version: proposed, status: 'approved' },
+    })
+    const row = trace
+      .prepare('SELECT content, diff, decided_by FROM playbook_versions WHERE version = ?')
+      .get(proposed) as {
+      content: string
+      diff: string
+      decided_by: string
+    }
+    expect(row.content).toContain(`- ${rule}`)
+    expect(row.diff).toContain(`+- ${rule}`)
+    expect(row.decided_by).toBe('person')
+    const lesson = trace.prepare('SELECT rule, status FROM lessons WHERE playbook_version = ?').get(proposed)
+    expect(lesson).toEqual({ rule, status: 'accepted' })
+    expect((await post(api, `/api/playbook/${proposed}`, { decision: 'reject' })).body.error).toContain(
+      'already approved',
+    )
+  })
+
+  it('rejects a proposal, and refuses an edit with a rejection, an unknown version and a bad id', async () => {
+    const { api, proposed } = setup()
+    expect(
+      (await post(api, `/api/playbook/${proposed}`, { decision: 'reject', rule: 'A new rule text here.' }))
+        .body,
+    ).toEqual({
+      error: 'Only an approval can change the rule.',
+    })
+    expect((await post(api, '/api/playbook/99', { decision: 'approve' })).status).toBe(404)
+    expect((await post(api, '/api/playbook/x', { decision: 'approve' })).status).toBe(400)
+    expect(await post(api, `/api/playbook/${proposed}`, { decision: 'reject' })).toMatchObject({
+      status: 200,
+      body: { status: 'rejected' },
+    })
+  })
+
+  it('without a key, says how to run live', async () => {
+    const { trace, proposed } = setup()
+    const api = createApi({ trace, mode: 'live', live: liveAvailability({}) })
+    expect(await post(api, `/api/playbook/${proposed}`, { decision: 'approve' })).toMatchObject({
+      status: 409,
+      body: { how: HOW_TO_RUN_LIVE },
+    })
   })
 })
 

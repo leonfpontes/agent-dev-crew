@@ -20,9 +20,21 @@ import * as v from 'valibot'
 
 import { HOW_TO_RUN_LIVE, type LiveAvailability } from './live-info.js'
 import type { LiveRunner } from './live.js'
+import type { EvaluationMeta } from './replay.js'
 import type { WebGate } from './web-gate.js'
 
 export type ApiMode = 'replay' | 'live'
+
+export interface PlaybookDecision {
+  decision: 'approve' | 'reject'
+  /** Approve this text instead of the proposed rule (a proposal with one rule only). */
+  rule?: string
+}
+
+export interface PlaybookDecider {
+  /** Returns the decided version's status; throws an Error whose message the person can act on. */
+  decide(version: number, decision: PlaybookDecision): { version: number; status: string }
+}
 
 export interface ApiOptions {
   trace: TraceDb
@@ -31,6 +43,10 @@ export interface ApiOptions {
   live?: LiveAvailability
   /** Whether the Evaluation numbers are examples (default: true in replay, false live). */
   exampleData?: boolean
+  /** The real scoreboard's model, cost limit and finish time, shown on the Evaluation band. */
+  evaluationMeta?: EvaluationMeta
+  /** Live mode: decides a proposed playbook version (approve, reject, or approve an edited rule). */
+  playbook?: PlaybookDecider
   /** Live mode with a key: starts runs and holds the gate. */
   runner?: LiveRunner
   gate?: WebGate
@@ -71,6 +87,16 @@ const StartRun = v.object({
   title: v.optional(v.pipe(v.string(), v.trim(), v.minLength(5), v.maxLength(80))),
   variant: v.optional(v.picklist(VARIANTS)),
 })
+const PlaybookAnswer = v.pipe(
+  v.object({
+    decision: v.picklist(['approve', 'reject']),
+    rule: v.optional(
+      v.pipe(v.string(), v.trim(), v.minLength(10, 'A rule needs at least 10 characters.'), v.maxLength(300)),
+    ),
+  }),
+  v.check((a) => a.decision === 'approve' || a.rule === undefined, 'Only an approval can change the rule.'),
+)
+
 const GateAnswer = v.pipe(
   v.object({
     decision: v.picklist(['approve', 'request-changes', 'reject']),
@@ -212,9 +238,29 @@ export function createApi(options: ApiOptions): (request: Request) => Promise<Re
 
       if (resource === 'playbook' && !idText) return json({ versions: playbookHistory(trace) })
 
+      // POST /api/playbook/:version (live): decide a proposed version.
+      if (resource === 'playbook' && idText && !sub) {
+        if (method !== 'POST') return error(405, 'Decide a playbook version with POST.')
+        const version = Number(idText)
+        if (!Number.isInteger(version) || version < 1)
+          return error(400, `"${idText}" is not a playbook version.`)
+        if (!options.playbook)
+          return error(409, 'Live runs need a key.', { how: live.how ?? HOW_TO_RUN_LIVE })
+        const exists = trace.prepare('SELECT status FROM playbook_versions WHERE version = ?').get(version)
+        if (!exists) return error(404, `There is no playbook v${version}.`)
+        const parsed = v.safeParse(PlaybookAnswer, await readJson(request))
+        if (!parsed.success) return error(400, firstIssue(parsed.issues))
+        try {
+          return json(options.playbook.decide(version, parsed.output))
+        } catch (e) {
+          return error(409, (e as Error).message)
+        }
+      }
+
       if (resource === 'evaluation' && !idText) {
         return json({
           exampleData,
+          ...(options.evaluationMeta ?? {}),
           main: evaluationSummary(trace, 'main'),
           learningCurve: {
             points: learningCurve(trace),

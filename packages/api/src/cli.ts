@@ -12,7 +12,7 @@ import { approveByPolicy, type GateDecider } from '@crew/engine'
 import { migrate, openTrace, type SeedEvaluation } from '@crew/trace'
 
 import { HOW_TO_RUN_LIVE, liveAvailability } from './live-info.js'
-import { createLiveRunner } from './live.js'
+import { createLiveRunner, createPlaybookDecider } from './live.js'
 import { serveHttp } from './node-http.js'
 import { loadReplay } from './replay.js'
 import { createApi } from './routes.js'
@@ -65,15 +65,23 @@ if (command === 'serve') {
     const runner = live.available
       ? createLiveRunner({ trace, root, gate, apiKey: process.env.ANTHROPIC_API_KEY! })
       : undefined
-    api = createApi({ trace, mode: 'live', live, gate, runner })
+    const playbook = live.available ? createPlaybookDecider(trace) : undefined
+    api = createApi({ trace, mode: 'live', live, gate, runner, playbook })
     if (!live.available) console.error(HOW_TO_RUN_LIVE)
   } else {
     const results = path.join(root, 'evals', 'results', 'latest.json')
     const evaluation = existsSync(results)
       ? (JSON.parse(readFileSync(results, 'utf8')) as SeedEvaluation)
       : undefined
-    const replay = loadReplay({ file: path.join(root, '.crew', 'replay.sqlite'), evaluation })
-    api = createApi({ trace: replay.trace, mode: 'replay', exampleData: replay.exampleData })
+    // Seeded in memory from the scoreboard, like the Vercel function: a stale .crew/replay.sqlite can
+    // never show old numbers under a "measured" label.
+    const replay = loadReplay({ evaluation })
+    api = createApi({
+      trace: replay.trace,
+      mode: 'replay',
+      exampleData: replay.exampleData,
+      evaluationMeta: replay.evaluationMeta,
+    })
   }
   const server = serveHttp(api, { port, staticDir })
   server.on('listening', () =>

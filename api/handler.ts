@@ -7,7 +7,12 @@ import { createApi, loadReplay, type ReplayOptions } from '@crew/api/replay'
 import results from '../evals/results/latest.json' with { type: 'json' }
 
 const replay = loadReplay({ evaluation: results as unknown as ReplayOptions['evaluation'] })
-const api = createApi({ trace: replay.trace, mode: 'replay', exampleData: replay.exampleData })
+const api = createApi({
+  trace: replay.trace,
+  mode: 'replay',
+  exampleData: replay.exampleData,
+  evaluationMeta: replay.evaluationMeta,
+})
 
 /** The request as the API expects it: /api/<path>, with the other query parameters kept. */
 export function toApiRequest(request: Request): Request {
