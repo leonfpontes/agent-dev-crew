@@ -1,0 +1,19 @@
+{
+  "name": "@crew/sandbox",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Runs the code the agents write in a child process with no environment, writing to one folder only.",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "crew-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit"
+  }
+}
