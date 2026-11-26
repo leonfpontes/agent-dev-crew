@@ -31,11 +31,16 @@ Details in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Development
 
-| Command      | Does                                                                |
-| ------------ | ------------------------------------------------------------------- |
-| `pnpm dev`   | the web app on http://127.0.0.1:5173                                |
-| `pnpm check` | types, lint, formatting, tests and build                            |
-| `pnpm qa`    | `pnpm check`, then the end-to-end tests (`E2E_PORT` picks the port) |
+| Command                    | Does                                                                |
+| -------------------------- | ------------------------------------------------------------------- |
+| `pnpm dev`                 | the web app on http://127.0.0.1:5173                                |
+| `pnpm demo -- --port 8891` | builds, then serves the app and the API with example runs           |
+| `pnpm crew serve --port …` | the same server, rebuilding only the API; `--live` runs real models |
+| `pnpm check`               | types, lint, formatting, tests and build                            |
+| `pnpm qa`                  | `pnpm check`, then the end-to-end tests (`E2E_PORT` picks the port) |
+
+`pnpm demo` and `pnpm crew serve` listen on 127.0.0.1, port 8787 by default. `--port` or the `PORT`
+variable picks another. A busy port stops the server with an error; it never moves to the next port.
 
 Rules for AI agents: [AGENTS.md](AGENTS.md). Docs: [docs/](docs/README.md).
 
