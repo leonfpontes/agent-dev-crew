@@ -1,16 +1,29 @@
 // What a sandboxed child process may touch. Node's permission model (`--permission`) denies the
-// file system, child processes and workers unless a flag allows them; the child also starts with
-// no environment variables, so a key in the parent's environment never reaches agent code.
+// file system, child processes, workers and native addons unless a flag allows them; the child
+// starts with no environment variables except NODE_OPTIONS, which loads the network blocker
+// (preload/block-network.mjs) into it and into every Node process it starts.
 
 import { realpathSync } from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 export interface SandboxPolicy {
   /** Absolute folders the child may read (dependencies, the copy of the example repository). */
   read: string[]
   /** Absolute folders the child may write (only the copy of the example repository). */
   write: string[]
+  /**
+   * Let the child start Node child processes (a test runner's workers). They inherit the permission
+   * flags and the blocker, which stops them from starting processes of their own. Worker threads are
+   * never allowed: Node starts them without the permission model.
+   */
+  childProcesses?: boolean
+  /** Let the child load native addons (the test runner's bundler). */
+  addons?: boolean
 }
+
+/** The network blocker every sandboxed process loads (from src/ and from dist/ alike). */
+export const BLOCKER = fileURLToPath(new URL('../preload/block-network.mjs', import.meta.url))
 
 /**
  * The real path of a folder, following symlinks; for a folder that doesn't exist yet, the real path
@@ -33,10 +46,14 @@ export function permissionFlags(policy: SandboxPolicy): string[] {
   }
   return [
     '--permission',
-    ...policy.read.map((dir) => `--allow-fs-read=${realPath(dir)}`),
+    ...[...policy.read, path.dirname(BLOCKER)].map((dir) => `--allow-fs-read=${realPath(dir)}`),
     ...policy.write.map((dir) => `--allow-fs-write=${realPath(dir)}`),
+    ...(policy.childProcesses ? ['--allow-child-process'] : []),
+    ...(policy.addons ? ['--allow-addons'] : []),
   ]
 }
 
-/** The environment a sandboxed child gets: nothing. */
-export const SANDBOX_ENV: Readonly<Record<string, string>> = Object.freeze({})
+/** The environment a sandboxed child gets: only the blocker preload, nothing from the parent. */
+export function sandboxEnv(): Record<string, string> {
+  return { NODE_OPTIONS: `--import=${realPath(BLOCKER)}` }
+}
