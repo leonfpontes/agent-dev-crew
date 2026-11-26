@@ -31,6 +31,8 @@ import type {
   ContentBlock,
   Message,
   ModelProvider,
+  ModelRequest,
+  ModelResponse,
   PriceFn,
   TokenUsage,
   ToolResultBlock,
@@ -89,6 +91,17 @@ export interface RetroContext {
   status: RunStatus
   diff: string
   failures: TestReport['failures']
+  /** Set when the run failed. The run row is written after the retro, so read the outcome here. */
+  failureReason?: FailureReason
+  tests?: { passed: number; total: number }
+  variant: Variant
+  /** The retro step: lessons and the retro's model calls belong to it. */
+  stepId: number
+  /**
+   * One model call of the retro, through the run's budget and trace like any other step: the
+   * budget check first, then the request, cost and response rows. Throws over budget.
+   */
+  complete(request: ModelRequest, promptFile: string): Promise<ModelResponse>
 }
 
 export interface RetroResult {
@@ -106,7 +119,9 @@ export interface RunResult {
   costMicros: number
 }
 
-class BudgetExceeded extends Error {}
+class BudgetExceeded extends Error {
+  override name = 'BudgetExceeded'
+}
 class StepFailed extends Error {}
 
 interface AgentOutcome {
@@ -293,8 +308,54 @@ export async function runCrew(options: RunCrewOptions): Promise<RunResult> {
     const diff = workspaceDiff(workspace)
     if (options.retro && status !== 'rejected') {
       const stepId = rec.startStep({ kind: 'retro' })
+      const complete = async (request: ModelRequest, promptFile: string) => {
+        const estimate = price(request.model, {
+          inputTokens: estimateTokens([request.system, request.messages, request.tools]),
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+          outputTokens: request.maxTokens,
+        })
+        if (rec.spent + estimate > budget) {
+          rec.event(stepId, 'budget.exceeded', {
+            budgetUsd: usd(budget),
+            spentUsd: usd(rec.spent),
+            nextCallUsd: usd(estimate),
+          })
+          throw new BudgetExceeded(`the retro call would pass the $${usd(budget)} budget`)
+        }
+        rec.event(stepId, 'model.request', {
+          prompt: promptFile,
+          playbook: null,
+          system: request.system,
+          rules: [],
+          user: typeof request.messages[0]?.content === 'string' ? request.messages[0].content : null,
+          turn: request.messages.filter((m) => m.role === 'assistant').length,
+          raw: { model: request.model, max_tokens: request.maxTokens, messages: request.messages.length },
+        })
+        const response = await provider.complete(request)
+        rec.cost(stepId, response.model, response.usage, price(response.model, response.usage))
+        rec.event(stepId, 'model.response', {
+          text: response.content
+            .filter((b): b is Extract<ContentBlock, { type: 'text' }> => b.type === 'text')
+            .map((b) => b.text)
+            .join('\n'),
+          stopReason: response.stopReason,
+          raw: response.raw ?? null,
+        })
+        return response
+      }
       try {
-        const retro = await options.retro({ runId: rec.runId, status, diff, failures: tests?.failures ?? [] })
+        const retro = await options.retro({
+          runId: rec.runId,
+          status,
+          diff,
+          failures: tests?.failures ?? [],
+          failureReason,
+          tests: tests && !tests.error ? { passed: tests.passed, total: tests.total } : undefined,
+          variant,
+          stepId,
+          complete,
+        })
         for (const lesson of retro.lessons) rec.event(stepId, 'lesson.proposed', lesson)
         rec.finishStep(stepId, { status: 'passed', summary: `${retro.lessons.length} lessons` })
       } catch (error) {

@@ -34,8 +34,11 @@ export interface ToolSpec {
   inputSchema: Record<string, unknown>
 }
 
+/** Who is calling: a role, the single agent, or the retro after the run. */
+export type Caller = Agent | 'retro'
+
 export interface ModelRequest {
-  agent: Agent
+  agent: Caller
   model: string
   system: string
   messages: Message[]
@@ -83,7 +86,7 @@ export type Script = (request: ModelRequest, turn: number) => ScriptedTurn
 export class ScriptedProvider implements ModelProvider {
   readonly calls: ModelRequest[] = []
 
-  constructor(private readonly scripts: Partial<Record<Agent, Script>>) {}
+  constructor(private readonly scripts: Partial<Record<Caller, Script>>) {}
 
   async complete(request: ModelRequest): Promise<ModelResponse> {
     this.calls.push(request)
