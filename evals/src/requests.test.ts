@@ -9,6 +9,7 @@ import {
   countTests,
   isRequestSet,
   loadRequests,
+  loadRequestSet,
   REQUEST_SET_RULES,
   REQUEST_SETS,
   requestSetDir,
@@ -93,6 +94,77 @@ describe('evals/requests', () => {
     ])
     rmSync(dir, { recursive: true, force: true })
   })
+})
+
+describe('evals/requests-hard', () => {
+  const { requests, problems } = loadRequestSet(evalsDir, exampleDir, 'hard')
+  const easy = loadRequests(requestsDir, exampleDir).requests
+
+  it('has 10 hard requests with 6 hidden tests each, a reference solution, and ids the easy set does not use', () => {
+    expect(problems).toEqual([])
+    expect(requests.map((r) => [r.id, r.hiddenTestCount])).toEqual([
+      ['stock-reservations', 6],
+      ['promotions', 6],
+      ['store-timezone-reports', 6],
+      ['split-shipments', 6],
+      ['loyalty-points', 6],
+      ['idempotency-keys', 6],
+      ['returns', 6],
+      ['price-changes', 6],
+      ['order-query', 6],
+      ['gift-cards', 6],
+    ])
+    const easyIds = new Set(easy.map((r) => r.id))
+    expect(requests.filter((r) => easyIds.has(r.id))).toEqual([])
+  })
+
+  it('writes every request in plain English, longer than the easy ones, through the HTTP API', () => {
+    const longestEasy = Math.max(...easy.map((r) => r.request.length))
+    for (const r of requests) {
+      expect(r.request, r.id).toMatch(/^[\x20-\x7E]+$/)
+      expect(r.request, r.id).toMatch(/\b(GET|POST) \//)
+      expect(r.request.length, r.id).toBeGreaterThan(longestEasy)
+    }
+  })
+
+  it('names in the request every error message its hidden tests expect, unless the example already gives it', () => {
+    // The messages the example gives today, e.g. `A ${order.status} order cannot be paid`, as patterns.
+    const source = ['routes/cart.ts', 'routes/orders.ts', 'routes/reports.ts']
+      .map((f) => readFileSync(path.join(exampleDir, 'src', f), 'utf8'))
+      .join('\n')
+    const existing = [...source.matchAll(/fail\(\d+, [`']([^`']+)[`']\)/g)].map(
+      (m) => new RegExp(`^${m[1]!.replace(/[.*+?^()|[\]\\]/g, '\\$&').replace(/\$\{[^}]+\}/g, '.+')}$`),
+    )
+    for (const r of requests) {
+      const tests = readFileSync(path.join(requestSetDir(evalsDir, 'hard'), r.id, `${r.id}.test.ts`), 'utf8')
+      for (const [, error] of tests.matchAll(/error: '([^']+)'/g)) {
+        if (existing.some((pattern) => pattern.test(error!))) continue
+        // A value in the message is a placeholder in the request: "Not enough stock for <SKU>",
+        // "A <status> order cannot be cancelled", "Invalid query: <name>". Compare the words around it.
+        const described = error!
+          .replace(/^A [a-z_]+ order/, 'A <status> order')
+          .replace(/^Invalid query: \w+$/, 'Invalid query: <name>')
+          .split(/ (?=[A-Z]{3}-|-?\d|ord_|cus_|GC-)/)[0]!
+        expect(r.request, `${r.id}: "${error}"`).toContain(described)
+      }
+    }
+  })
+
+  it('proves each hard request is a fair test', () => {
+    const workDir = path.join(evalsDir, '../.crew/validate-requests-hard-test')
+    const validation = validateRequests({
+      requestsDir: requestSetDir(evalsDir, 'hard'),
+      exampleDir,
+      workDir,
+      rules: REQUEST_SET_RULES.hard,
+    })
+    rmSync(workDir, { recursive: true, force: true })
+    expect(validation.problems, formatValidation(validation)).toEqual([])
+    for (const r of validation.results) {
+      expect(r.failingBefore, r.id).toBeGreaterThan(0)
+      expect([r.failingAfter, r.visibleTests, r.visibleFailingAfter], r.id).toEqual([0, 20, 0])
+    }
+  }, 180_000)
 })
 
 describe('request sets', () => {

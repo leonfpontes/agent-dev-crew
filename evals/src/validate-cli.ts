@@ -8,7 +8,9 @@ import { isRequestSet, REQUEST_SET_RULES, REQUEST_SETS, requestSetDir, type Requ
 import { formatValidation, validateRequests } from './validate.js'
 
 const evalsDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const { values } = parseArgs({ args: process.argv.slice(2), options: { set: { type: 'string' } } })
+// `pnpm validate -- --set hard` passes the `--` through.
+const argv = process.argv.slice(2).filter((a) => a !== '--')
+const { values } = parseArgs({ args: argv, options: { set: { type: 'string' } } })
 if (values.set !== undefined && !isRequestSet(values.set))
   throw new Error(`--set must be one of ${REQUEST_SETS.join(', ')} (got "${values.set}").`)
 const sets: readonly RequestSet[] = values.set ? [values.set] : REQUEST_SETS
