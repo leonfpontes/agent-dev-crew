@@ -8,5 +8,6 @@
     "sourceMap": true,
     "customConditions": []
   },
-  "exclude": ["src/**/*.test.ts", "src/test"]
+  "exclude": ["src/**/*.test.ts", "src/test"],
+  "include": ["src"]
 }
