@@ -12,6 +12,9 @@ importers:
 
   .:
     devDependencies:
+      '@crew/api':
+        specifier: workspace:*
+        version: link:packages/api
       '@eslint/js':
         specifier: 10.0.1
         version: 10.0.1(eslint@10.15.0(jiti@2.7.0))
@@ -93,6 +96,25 @@ importers:
         version: 1.5.0(typescript@6.0.3)
 
   examples/fernhill-orders: {}
+
+  packages/api:
+    dependencies:
+      '@crew/core':
+        specifier: workspace:*
+        version: link:../core
+      '@crew/engine':
+        specifier: workspace:*
+        version: link:../engine
+      '@crew/trace':
+        specifier: workspace:*
+        version: link:../trace
+      valibot:
+        specifier: 1.5.0
+        version: 1.5.0(typescript@6.0.3)
+    devDependencies:
+      vitest:
+        specifier: 5.1.2
+        version: 5.1.2(@types/node@22.20.7)(@vitest/coverage-v8@5.1.2)(jsdom@31.0.1)(vite@8.3.8(@types/node@22.20.7)(jiti@2.7.0))
 
   packages/core: {}
 

@@ -1,0 +1,33 @@
+{
+  "name": "@crew/api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The read API of the trace for the app, the replay demo (no key, no cost) and the local live mode with the human gate.",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "crew-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./replay": {
+      "crew-source": "./src/replay-entry.ts",
+      "types": "./dist/replay-entry.d.ts",
+      "import": "./dist/replay-entry.js"
+    }
+  },
+  "scripts": {
+    "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@crew/core": "workspace:*",
+    "@crew/engine": "workspace:*",
+    "@crew/trace": "workspace:*",
+    "valibot": "1.5.0"
+  },
+  "devDependencies": {
+    "vitest": "5.1.2"
+  }
+}
