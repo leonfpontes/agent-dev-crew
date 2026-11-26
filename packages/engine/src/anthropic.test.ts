@@ -9,6 +9,7 @@ import {
   anthropicPrice,
   ApiError,
   createAnthropicProvider,
+  DEFAULT_ALLOWED_MODELS,
   PRICES,
   ratesFor,
   retryDelay,
@@ -159,9 +160,15 @@ describe('createAnthropicProvider', () => {
     expect(told.fetch).toHaveBeenCalledTimes(1)
   })
 
-  it('refuses Sonnet models and a missing key before any call', async () => {
+  it('refuses a model outside the cost allowlist and a missing key before any call', async () => {
     const { fetch, p } = provider([ok(reply('x'))])
-    await expect(p.complete({ ...REQ, model: 'claude-sonnet-5-5' })).rejects.toThrow('no Sonnet models')
+    await expect(p.complete({ ...REQ, model: 'claude-opus-5-5' })).rejects.toThrow(
+      'not in the allowed models',
+    )
+    const custom = createAnthropicProvider({ apiKey: 'k', fetch, allowedModels: ['claude-haiku-5-5'] })
+    await expect(custom.complete({ ...REQ, model: 'claude-haiku-4-5-20251001' })).rejects.toThrow(
+      'not in the allowed models (claude-haiku-5-5)',
+    )
     expect(fetch).not.toHaveBeenCalled()
     expect(() => createAnthropicProvider({ apiKey: '' })).toThrow('ANTHROPIC_API_KEY is missing')
   })
@@ -213,7 +220,7 @@ describe('anthropicPrice', () => {
     expect(() => anthropicPrice('claude-unknown', usage({}))).toThrow(
       'No price for the model "claude-unknown"',
     )
-    expect(Object.keys(PRICES).some((m) => /sonnet/i.test(m))).toBe(false)
+    expect(DEFAULT_ALLOWED_MODELS).toEqual(Object.keys(PRICES))
   })
 })
 

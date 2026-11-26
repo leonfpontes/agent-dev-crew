@@ -242,7 +242,9 @@ describe('createRetro', () => {
       retro: () => [toolUse('submit_lessons', { lessons: [] })],
     })
     // The real role specs, so the fix gets its failures in the <failures> tag.
-    const opts = options(provider, { roles: createRoleSpecs({ models: { primary: 'model-small' } }) })
+    const opts = options(provider, {
+      roles: createRoleSpecs({ models: { primary: 'model-small' }, allowedModels: ['model-small'] }),
+    })
     const result = await runCrew(opts)
     expect(result.status).toBe('passed')
     const input = describeRun(opts.trace, result.runId, { status: 'passed' }, '', 'PLAYBOOK')

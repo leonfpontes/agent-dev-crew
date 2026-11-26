@@ -30,9 +30,14 @@ export const PRICES: Readonly<Record<string, ModelPrice>> = {
 
 export const promptTokens = (u: TokenUsage) => u.inputTokens + u.cacheReadTokens + u.cacheWriteTokens
 
+/** The price of a model, also when the API answers with a dated id for an alias (`<alias>-YYYYMMDD`). */
+export function priceOf(model: string): ModelPrice | undefined {
+  return PRICES[model] ?? PRICES[model.replace(/-\d{8}$/, '')]
+}
+
 /** The rates one request pays: each request is priced on its own prompt length. */
 export function ratesFor(model: string, usage: TokenUsage): Rates {
-  const price = PRICES[model]
+  const price = priceOf(model)
   // An unknown model would cost 0 and slip past every budget: refuse it instead.
   if (!price) throw new Error(`No price for the model "${model}". Add it to PRICES in pricing.ts.`)
   return price.longPrompt && promptTokens(usage) > price.longPrompt.tokens ? price.longPrompt : price

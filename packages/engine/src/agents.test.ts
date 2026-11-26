@@ -29,11 +29,15 @@ describe('createRoleSpecs', () => {
     expect(roles.solo.playbookSection).toBeUndefined()
   })
 
-  it('refuses a Sonnet model as primary or fallback', () => {
-    expect(() => createRoleSpecs({ models: { primary: 'claude-sonnet-5-5' } })).toThrow('no Sonnet models')
+  it('refuses a model outside the cost allowlist, as primary or fallback, unless it is allowed', () => {
+    expect(() => createRoleSpecs({ models: { primary: 'claude-opus-5-5' } })).toThrow(
+      'The model "claude-opus-5-5" is not in the allowed models (claude-haiku-5-5, claude-haiku-4-5-20251001)',
+    )
     expect(() =>
-      createRoleSpecs({ models: { primary: MODELS.primary, fallback: 'claude-sonnet-4-6' } }),
-    ).toThrow('no Sonnet models')
+      createRoleSpecs({ models: { primary: MODELS.primary, fallback: 'claude-opus-4-6' } }),
+    ).toThrow('not in the allowed models')
+    const allowed = createRoleSpecs({ models: { primary: 'model-x' }, allowedModels: ['model-x'] })
+    expect(allowed.po.models.primary).toBe('model-x')
   })
 
   it('takes other limits per role', () => {

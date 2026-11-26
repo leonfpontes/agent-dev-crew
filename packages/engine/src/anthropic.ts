@@ -3,6 +3,7 @@
 // honouring the server's retry-after, and throws when the retries run out: the engine then moves
 // the step to the role's fallback model. A wrong request (400, 401, 403, 404, 413) throws at once.
 
+import { PRICES } from './pricing.js'
 import type {
   ContentBlock,
   Message,
@@ -22,9 +23,18 @@ export const MODEL_SETTINGS: Readonly<Record<string, { effort?: Effort }>> = {
   'claude-haiku-5-5': { effort: 'medium' },
 }
 
-/** The crew never runs on Sonnet (cost policy of the project, see ADR 0004). */
-export function assertAllowedModel(model: string): void {
-  if (/sonnet/i.test(model)) throw new Error(`The model "${model}" is not allowed: no Sonnet models.`)
+/**
+ * The cost allowlist (ADR 0004): the models a run may call. By default, the light models priced in
+ * PRICES. A model outside it is refused before any call, so a typo or a larger model can't reach
+ * the bill; to allow one, pass it in `allowedModels` and add its price.
+ */
+export const DEFAULT_ALLOWED_MODELS: readonly string[] = Object.keys(PRICES)
+
+export function assertAllowedModel(model: string, allowed: readonly string[] = DEFAULT_ALLOWED_MODELS): void {
+  if (!allowed.includes(model))
+    throw new Error(
+      `The model "${model}" is not in the allowed models (${allowed.join(', ')}). Add it to allowedModels and to PRICES to use it.`,
+    )
 }
 
 export class ApiError extends Error {
@@ -48,6 +58,8 @@ export interface AnthropicOptions {
   sleep?: (ms: number) => Promise<void>
   timeoutMs?: number
   url?: string
+  /** The cost allowlist; default DEFAULT_ALLOWED_MODELS. */
+  allowedModels?: readonly string[]
 }
 
 const RETRYABLE = new Set([408, 409, 429, 500, 502, 503, 504, 529])
@@ -153,7 +165,7 @@ export function createAnthropicProvider(options: AnthropicOptions): ModelProvide
 
   return {
     async complete(request) {
-      assertAllowedModel(request.model)
+      assertAllowedModel(request.model, options.allowedModels)
       const body = JSON.stringify(toApiRequest(request))
       let last: ApiError | undefined
       for (let attempt = 0; attempt <= maxRetries; attempt++) {

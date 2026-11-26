@@ -22,8 +22,12 @@ million tokens):
 ## Decision
 
 - **Every role and the single agent run on `claude-haiku-5-5`** with effort `medium`, so the
-  variants differ only in how the work is split. Sonnet models are refused in code
-  (`assertAllowedModel`), for any role, the fallback included.
+  variants differ only in how the work is split.
+- **A cost allowlist decides which models a run may call:** by default the light models in the price
+  table (`DEFAULT_ALLOWED_MODELS`). Any other model, a larger one or a typo, is refused before the
+  call, for every role, the fallback and the retro included. It is configurable (`allowedModels` in
+  `createRoleSpecs` and `createAnthropicProvider`), and a model also needs its price in `PRICES`, so
+  it can't cost 0 in a budget.
 - **The fallback is `claude-haiku-4-5-20251001`:** the only other light Claude model, and a different
   model, so an overload or a rate limit on Haiku 5.5 doesn't stop it too. It costs 10× more, but it
   only runs for a step whose primary call failed, and the engine checks the budget at the fallback's

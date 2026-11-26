@@ -9,6 +9,7 @@ export {
   ApiError,
   assertAllowedModel,
   createAnthropicProvider,
+  DEFAULT_ALLOWED_MODELS,
   fromApiResponse,
   MODEL_SETTINGS,
   retryDelay,
@@ -27,7 +28,7 @@ export {
   sectionRules,
 } from './playbook.js'
 export type { LessonInput, PlaybookVersion, ProposalResult, ProposedRule } from './playbook.js'
-export { anthropicPrice, PRICES, promptTokens, ratesFor } from './pricing.js'
+export { anthropicPrice, priceOf, PRICES, promptTokens, ratesFor } from './pricing.js'
 export type { ModelPrice, Rates } from './pricing.js'
 export { flatPrice, ScriptedProvider, text, toolUse } from './provider.js'
 export type {

@@ -98,12 +98,14 @@ const SECTIONS = { po: 'PO', engineer: 'Engineer', reviewer: 'Reviewer', qa: 'QA
 export interface RoleSpecOptions {
   models?: { primary: string; fallback?: string }
   limits?: Partial<Record<Agent, Partial<Limits>>>
+  /** The cost allowlist the models must be in; default DEFAULT_ALLOWED_MODELS. */
+  allowedModels?: readonly string[]
 }
 
 export function createRoleSpecs(options: RoleSpecOptions = {}): RoleSpecs {
   const models = options.models ?? { ...MODELS }
-  assertAllowedModel(models.primary)
-  if (models.fallback) assertAllowedModel(models.fallback)
+  assertAllowedModel(models.primary, options.allowedModels)
+  if (models.fallback) assertAllowedModel(models.fallback, options.allowedModels)
 
   const spec = (agent: Agent): RoleSpec => {
     const prompt = readPrompt(agent)
