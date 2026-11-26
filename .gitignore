@@ -1,0 +1,15 @@
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+.venv/
+__pycache__/
+.env*
+!.env.example
+.vercel
+CLAUDE.local.md
+.DS_Store
+*.tsbuildinfo
+# Local runs of the crew: copies of the example repository and the live trace database.
+.crew/
