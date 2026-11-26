@@ -1,5 +1,5 @@
 // The four screens in a real browser, on the replay API: no console errors, no sideways scroll at
-// 1440 and 375 px, and axe with contrast measured on the rendered page in both themes.
+// 1440, 1024 and 375 px, and axe with contrast measured on the rendered page in both themes.
 import { createRequire } from 'node:module'
 
 import { expect, test, type Page } from '@playwright/test'
@@ -42,6 +42,8 @@ async function axe(page: Page) {
 
 for (const viewport of [
   { width: 1440, height: 900 },
+  // QA (Q1): the tablet width of the approved prototype.
+  { width: 1024, height: 768 },
   { width: 375, height: 812 },
 ]) {
   for (const theme of ['light', 'dark']) {
