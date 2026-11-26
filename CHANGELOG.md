@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions: [Sem
 
 ### Fixed
 
+- The API serves both scoreboards: `GET /api/evaluation?set=hard` reads `evals/results/hard.json` from a database of its own (locally and on Vercel), with the scoreboard's notes; `/api/meta` lists the sets.
+
 - An answer cut at `max_tokens` before any tool call no longer ends the step as finished: the engine drops it, asks the agent to act and goes on, within `maxTurns`.
 
 ### Added

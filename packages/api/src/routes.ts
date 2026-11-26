@@ -20,7 +20,7 @@ import * as v from 'valibot'
 
 import { HOW_TO_RUN_LIVE, type LiveAvailability } from './live-info.js'
 import type { LiveRunner } from './live.js'
-import type { EvaluationMeta } from './replay.js'
+import { EVALUATION_SETS, type EvaluationMeta, type EvaluationSet } from './replay.js'
 import type { WebGate } from './web-gate.js'
 
 export type ApiMode = 'replay' | 'live'
@@ -45,11 +45,23 @@ export interface ApiOptions {
   exampleData?: boolean
   /** The real scoreboard's model, cost limit and finish time, shown on the Evaluation band. */
   evaluationMeta?: EvaluationMeta
+  /**
+   * The Evaluation data per request set (`GET /api/evaluation?set=`), each in its own database: every
+   * set has its own playbook history. Default: `easy` alone, from `trace`.
+   */
+  evaluations?: Partial<Record<EvaluationSet, EvaluationSource>>
   /** Live mode: decides a proposed playbook version (approve, reject, or approve an edited rule). */
   playbook?: PlaybookDecider
   /** Live mode with a key: starts runs and holds the gate. */
   runner?: LiveRunner
   gate?: WebGate
+}
+
+/** One request set's Evaluation data. */
+export interface EvaluationSource {
+  trace: TraceDb
+  exampleData: boolean
+  meta?: EvaluationMeta
 }
 
 /** The playback speeds the app offers for a recorded run. */
@@ -124,6 +136,11 @@ export function createApi(options: ApiOptions): (request: Request) => Promise<Re
       ? (options.live ?? { available: false, how: HOW_TO_RUN_LIVE })
       : { available: false, how: HOW_TO_RUN_LIVE }
 
+  const evaluations: Partial<Record<EvaluationSet, EvaluationSource>> = options.evaluations ?? {
+    easy: { trace, exampleData, meta: options.evaluationMeta },
+  }
+  const evaluationSets = EVALUATION_SETS.filter((set) => evaluations[set])
+
   const runRow = (id: number) =>
     trace.prepare('SELECT id, duration_ms FROM runs WHERE id = ?').get(id) as
       { id: number; duration_ms: number | null } | undefined
@@ -146,7 +163,7 @@ export function createApi(options: ApiOptions): (request: Request) => Promise<Re
     try {
       // GET /api/meta
       if (resource === 'meta' && !idText) {
-        return json({ mode, exampleData, replaySpeeds: REPLAY_SPEEDS, live })
+        return json({ mode, exampleData, replaySpeeds: REPLAY_SPEEDS, live, evaluationSets })
       }
 
       // /api/runs
@@ -257,16 +274,28 @@ export function createApi(options: ApiOptions): (request: Request) => Promise<Re
         }
       }
 
+      // GET /api/evaluation?set=easy|hard (default easy)
       if (resource === 'evaluation' && !idText) {
+        const set = url.searchParams.get('set') ?? 'easy'
+        if (!(EVALUATION_SETS as readonly string[]).includes(set))
+          return error(400, `Unknown set "${set.slice(0, 40)}". Use one of: ${EVALUATION_SETS.join(', ')}.`)
+        const source = evaluations[set as EvaluationSet]
+        if (!source)
+          return error(
+            404,
+            `This server has no ${set} scoreboard. Sets: ${evaluationSets.join(', ') || 'none'}.`,
+          )
+        const db = source.trace
         return json({
-          exampleData,
-          ...(options.evaluationMeta ?? {}),
-          main: evaluationSummary(trace, 'main'),
+          set,
+          exampleData: source.exampleData,
+          ...(source.meta ?? {}),
+          main: evaluationSummary(db, 'main'),
           learningCurve: {
-            points: learningCurve(trace),
-            variants: evaluationSummary(trace, 'learning-curve'),
+            points: learningCurve(db),
+            variants: evaluationSummary(db, 'learning-curve'),
           },
-          matrix: requestMatrix(trace),
+          matrix: requestMatrix(db),
         })
       }
 

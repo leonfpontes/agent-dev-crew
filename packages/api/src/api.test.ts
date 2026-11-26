@@ -67,6 +67,7 @@ describe('replay mode', () => {
       exampleData: true,
       replaySpeeds: [1, 4],
       live: { available: false, how: HOW_TO_RUN_LIVE },
+      evaluationSets: ['easy'],
     })
   })
 
@@ -213,6 +214,95 @@ describe('replay with the real scoreboard', () => {
 
   it('keeps the example runs for the Runs screen', async () => {
     expect((await get(api, '/api/runs')).body.runs.length).toBeGreaterThan(0)
+  })
+})
+
+describe('evaluation per request set', () => {
+  it('serves easy by default, names the set, and lists the sets in /api/meta', async () => {
+    const api = createApi({ trace: openReplay(), mode: 'replay' })
+    expect((await get(api, '/api/meta')).body.evaluationSets).toEqual(['easy'])
+    const byDefault = (await get(api, '/api/evaluation')).body
+    expect(byDefault.set).toBe('easy')
+    expect((await get(api, '/api/evaluation?set=easy')).body).toEqual(byDefault)
+  })
+
+  it('says which sets exist when one is missing, and refuses an unknown one', async () => {
+    const api = createApi({ trace: openReplay(), mode: 'replay' })
+    expect(await get(api, '/api/evaluation?set=hard')).toMatchObject({
+      status: 404,
+      body: { error: 'This server has no hard scoreboard. Sets: easy.' },
+    })
+    expect(await get(api, '/api/evaluation?set=medium')).toMatchObject({
+      status: 400,
+      body: { error: 'Unknown set "medium". Use one of: easy, hard.' },
+    })
+  })
+
+  it('reads each set from its own database', async () => {
+    const easy = openReplay()
+    const hard = loadReplay({
+      evaluation: JSON.parse(readFileSync(path.join(ROOT, 'evals', 'results', 'latest.json'), 'utf8')),
+    })
+    const api = createApi({
+      trace: easy,
+      mode: 'replay',
+      evaluations: {
+        easy: { trace: easy, exampleData: true },
+        hard: { trace: hard.trace, exampleData: false, meta: hard.evaluationMeta },
+      },
+    })
+    expect((await get(api, '/api/meta')).body.evaluationSets).toEqual(['easy', 'hard'])
+    const served = (await get(api, '/api/evaluation?set=hard')).body
+    expect(served).toMatchObject({ set: 'hard', exampleData: false, model: hard.evaluationMeta!.model })
+    expect(served.main).toEqual(
+      (await get(createApi({ trace: hard.trace, mode: 'replay' }), '/api/evaluation')).body.main,
+    )
+  })
+})
+
+describe('replay with both real scoreboards', () => {
+  const read = (name: string) => JSON.parse(readFileSync(path.join(ROOT, 'evals', 'results', name), 'utf8'))
+  const easy = read('latest.json')
+  const hard = read('hard.json')
+  const replay = loadReplay({ evaluation: easy, hardEvaluation: hard })
+  const api = createApi({
+    trace: replay.trace,
+    mode: 'replay',
+    exampleData: replay.exampleData,
+    evaluationMeta: replay.evaluationMeta,
+    evaluations: replay.evaluations,
+  })
+
+  it('serves the hard scoreboard with its own numbers, curve, matrix and notes', async () => {
+    expect((await get(api, '/api/meta')).body.evaluationSets).toEqual(['easy', 'hard'])
+    const served = (await get(api, '/api/evaluation?set=hard')).body
+    expect(served).toMatchObject({
+      set: 'hard',
+      exampleData: false,
+      model: hard.model,
+      limitUsd: hard.budgetUsd.total,
+      finishedAt: hard.runAt,
+      notes: hard.notes,
+    })
+    for (const v of hard.main as { variant: string; passRate: { mean: number; sd: number } }[]) {
+      const row = served.main.find((x: { variant: string }) => x.variant === v.variant)
+      expect(row?.passRate.mean, v.variant).toBeCloseTo(v.passRate.mean, 10)
+      expect(row?.passRate.sd, v.variant).toBeCloseTo(v.passRate.sd, 10)
+    }
+    expect(served.learningCurve.points.map((p: { playbookVersion: number }) => p.playbookVersion)).toEqual(
+      hard.curve.map((p: { playbookVersion: number }) => p.playbookVersion),
+    )
+    expect(served.matrix.map((m: { requestId: string }) => m.requestId).sort()).toEqual(
+      hard.matrix.map((m: { requestId: string }) => m.requestId).sort(),
+    )
+  })
+
+  it('leaves easy, the runs and the playbook as they were', async () => {
+    const served = (await get(api, '/api/evaluation')).body
+    expect(served).toMatchObject({ set: 'easy', notes: easy.notes })
+    expect(served.matrix).toHaveLength(easy.matrix.length)
+    const versions = (await get(api, '/api/playbook')).body.versions as { version: number }[]
+    expect(versions.length).toBe(easy.playbook.versions.length + 1) // plus the example proposal
   })
 })
 

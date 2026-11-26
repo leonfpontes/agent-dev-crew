@@ -71,18 +71,22 @@ if (command === 'serve') {
     api = createApi({ trace, mode: 'live', live, gate, runner, playbook })
     if (!live.available) console.error(HOW_TO_RUN_LIVE)
   } else {
-    const results = path.join(root, 'evals', 'results', 'latest.json')
-    const evaluation = existsSync(results)
-      ? (JSON.parse(readFileSync(results, 'utf8')) as SeedEvaluation)
-      : undefined
-    // Seeded in memory from the scoreboard, like the Vercel function: a stale .crew/replay.sqlite can
+    const scoreboard = (name: string) => {
+      const file = path.join(root, 'evals', 'results', name)
+      return existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as SeedEvaluation) : undefined
+    }
+    // Seeded in memory from the scoreboards, like the Vercel function: a stale .crew/replay.sqlite can
     // never show old numbers under a "measured" label.
-    const replay = loadReplay({ evaluation })
+    const replay = loadReplay({
+      evaluation: scoreboard('latest.json'),
+      hardEvaluation: scoreboard('hard.json'),
+    })
     api = createApi({
       trace: replay.trace,
       mode: 'replay',
       exampleData: replay.exampleData,
       evaluationMeta: replay.evaluationMeta,
+      evaluations: replay.evaluations,
     })
   }
   const server = serveHttp(api, { port, staticDir })

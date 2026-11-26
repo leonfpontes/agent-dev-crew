@@ -8,11 +8,14 @@ export {
 } from './live.js'
 export { serveHttp } from './node-http.js'
 export {
+  EVALUATION_SETS,
   evaluationMetaOf,
   loadReplay,
   openReplay,
   type EvaluationMeta,
+  type EvaluationSet,
   type Replay,
+  type ReplaySet,
   type ReplayOptions,
 } from './replay.js'
 export {
@@ -21,6 +24,7 @@ export {
   REPLAY_SPEEDS,
   type ApiMode,
   type ApiOptions,
+  type EvaluationSource,
   type PlaybookDecider,
   type PlaybookDecision,
 } from './routes.js'
