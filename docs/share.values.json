@@ -1,0 +1,113 @@
+{
+  "phrase": "A crew of AI agents takes a feature request to a tested diff. You approve the plan.",
+  "scoreboard": {
+    "requests": 10,
+    "rounds": 3,
+    "oneAgent": 100,
+    "crew": 100,
+    "crewLabel": "the crew",
+    "costRatio": "3.1×",
+    "exampleData": false
+  },
+  "run": {
+    "id": 142,
+    "title": "Add an order cancellation endpoint",
+    "status": "passed",
+    "rows": [
+      {
+        "id": 7,
+        "name": "PO · plan",
+        "sub": null,
+        "status": "passed",
+        "kind": "plan",
+        "inner": false,
+        "left": 0,
+        "width": 4.2,
+        "cost": "$0.004"
+      },
+      {
+        "id": 8,
+        "name": "Human gate",
+        "sub": null,
+        "status": "approved",
+        "kind": "gate",
+        "inner": false,
+        "left": 4.2,
+        "width": 31,
+        "cost": "—"
+      },
+      {
+        "id": 9,
+        "name": "Engineer · code",
+        "sub": null,
+        "status": "passed",
+        "kind": "code",
+        "inner": false,
+        "left": 35.3,
+        "width": 17.7,
+        "cost": "$0.019"
+      },
+      {
+        "id": 10,
+        "name": "Reviewer · review",
+        "sub": null,
+        "status": "passed",
+        "kind": "review",
+        "inner": false,
+        "left": 53,
+        "width": 5.2,
+        "cost": "$0.008"
+      },
+      {
+        "id": 11,
+        "name": "QA · test",
+        "sub": "23 / 24",
+        "status": "failed",
+        "kind": "test",
+        "inner": false,
+        "left": 58.2,
+        "width": 12.1,
+        "cost": "$0.003"
+      },
+      {
+        "id": 13,
+        "name": "Engineer · fix",
+        "sub": "loop 1 of 2",
+        "status": "passed",
+        "kind": "fix",
+        "inner": true,
+        "left": 70.3,
+        "width": 9.5,
+        "cost": "$0.011"
+      },
+      {
+        "id": 14,
+        "name": "QA · test",
+        "sub": "24 / 24",
+        "status": "passed",
+        "kind": "test",
+        "inner": true,
+        "left": 79.7,
+        "width": 11.2,
+        "cost": "$0.003"
+      },
+      {
+        "id": 15,
+        "name": "Retro · lessons",
+        "sub": null,
+        "status": "passed",
+        "kind": "retro",
+        "inner": false,
+        "left": 90.9,
+        "width": 9.1,
+        "cost": "$0.003"
+      }
+    ],
+    "files": 3,
+    "additions": 42,
+    "deletions": 1,
+    "tests": "24 / 24",
+    "cost": "$0.051",
+    "duration": "3m 52s"
+  }
+}

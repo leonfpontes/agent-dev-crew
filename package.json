@@ -20,11 +20,14 @@
     "qa": "pnpm check && pnpm e2e",
     "crew": "pnpm -s --filter @crew/api... build && node packages/api/dist/cli.js",
     "demo": "pnpm build && node packages/api/dist/cli.js serve",
-    "eval": "pnpm --filter \"@crew/evals...\" build && node evals/dist/eval-cli.js"
+    "eval": "pnpm --filter \"@crew/evals...\" build && node evals/dist/eval-cli.js",
+    "share-images": "pnpm build && node apps/web/scripts/share-images.mjs"
   },
   "license": "MIT",
   "devDependencies": {
     "@crew/api": "workspace:*",
+    "@crew/core": "workspace:*",
+    "@crew/engine": "workspace:*",
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.65.1",
     "@types/node": "^22.20.7",

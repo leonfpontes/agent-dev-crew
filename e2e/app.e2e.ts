@@ -7,7 +7,12 @@ import { expect, test, type Page } from '@playwright/test'
 const AXE = createRequire(import.meta.url).resolve('axe-core')
 
 const SCREENS = [
-  { path: '/', heading: 'Runs' },
+  {
+    path: '/',
+    heading: 'A crew of AI agents takes a feature request to a tested diff. You approve the plan.',
+  },
+  { path: '/no-such-page', heading: 'This page is not in the trace' },
+  { path: '/runs', heading: 'Runs' },
   { path: '/runs/142', heading: 'Add an order cancellation endpoint' },
   { path: '/runs/143', heading: 'Validate the SKU before adding to the cart' },
   { path: '/playbook', heading: 'Playbook' },
@@ -61,7 +66,7 @@ for (const viewport of [
 }
 
 test('a run opens from the list, and its step panel follows the Gantt', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/runs')
   await page.getByRole('link', { name: 'Add an order cancellation endpoint' }).click()
   await expect(page).toHaveURL(/\/runs\/142$/)
   await page.getByRole('button', { name: /^Reviewer · review,/ }).click()
@@ -95,4 +100,19 @@ test('on a phone, the run has section tabs and the step opens in a sheet', async
   await expect(sheet.locator('#sheet-step-h')).toHaveText(/QA · test/)
   await sheet.getByRole('button', { name: 'Close step' }).click()
   await expect(sheet).toBeHidden()
+})
+
+test('How it works links to the demo, and the OG image is served with its tags', async ({
+  page,
+  request,
+}) => {
+  await page.goto('/')
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /\/og\.png$/)
+  await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute('content', 'summary_large_image')
+  const og = await request.get('/og.png')
+  expect(og.status()).toBe(200)
+  expect(og.headers()['content-type']).toBe('image/png')
+  await page.getByRole('link', { name: 'Open the demo' }).first().click()
+  await expect(page).toHaveURL(/\/runs$/)
+  await expect(page.getByRole('heading', { level: 1, name: 'Runs' })).toBeVisible()
 })

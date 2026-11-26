@@ -8,15 +8,22 @@ import { useTheme } from './lib/hooks'
 import { useLocation } from './lib/router'
 import type { Meta } from './lib/types'
 import { EvaluationPage } from './pages/Evaluation'
+import { HowItWorksPage } from './pages/HowItWorks'
 import { NotFoundPage } from './pages/NotFound'
 import { PlaybookPage } from './pages/Playbook'
 import { RunDetailPage } from './pages/run/RunDetail'
 import { RunsPage } from './pages/Runs'
+import { SharePage } from './pages/Share'
 
 export function App() {
-  const { route } = useLocation()
+  const { route, pathname } = useLocation()
   const { theme, toggle } = useTheme()
   const meta = useApi<Meta>('/api/meta')
+
+  // The public page, the share images and the 404 have no app shell.
+  if (route.name === 'how') return <HowItWorksPage theme={theme} onToggleTheme={toggle} />
+  if (route.name === 'share') return <SharePage />
+  if (route.name === 'not-found') return <NotFoundPage path={pathname} />
 
   let page
   if (meta.state === 'loading')
@@ -32,7 +39,6 @@ export function App() {
   else if (route.name === 'run') page = <RunDetailPage key={route.id} id={route.id} meta={meta.data} />
   else if (route.name === 'playbook') page = <PlaybookPage meta={meta.data} />
   else if (route.name === 'evaluation') page = <EvaluationPage meta={meta.data} />
-  else page = <NotFoundPage />
 
   return (
     <TooltipProvider>

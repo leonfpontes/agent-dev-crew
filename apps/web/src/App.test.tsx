@@ -17,7 +17,7 @@ afterEach(() => {
 describe('the shell', () => {
   it('shows the brand, the repository, the replay mode, the three tabs with counts and the example band', async () => {
     installApi()
-    renderAt('/')
+    renderAt('/runs')
     expect(await screen.findByRole('heading', { level: 1, name: 'Runs' })).toBeTruthy()
     const product = screen.getAllByRole('navigation', { name: 'Product' })[0]!
     expect(within(product).getByRole('link', { name: /Runs/ }).getAttribute('aria-current')).toBe('page')
@@ -30,7 +30,7 @@ describe('the shell', () => {
   it('explains replay mode in a popover that Escape closes', async () => {
     installApi()
     const user = userEvent.setup()
-    renderAt('/')
+    renderAt('/runs')
     const button = await screen.findByRole('button', { name: 'Replay mode: what it means' })
     await user.click(button)
     const pop = screen.getByRole('dialog', { name: 'Replay mode' })
@@ -44,7 +44,7 @@ describe('the shell', () => {
   it('switches the theme and keeps the choice', async () => {
     installApi()
     const user = userEvent.setup()
-    renderAt('/')
+    renderAt('/runs')
     await user.click(await screen.findByRole('button', { name: 'Switch to dark theme' }))
     expect(document.documentElement.classList.contains('dark')).toBe(true)
     expect(window.localStorage.getItem('crew-theme')).toBe('dark')
@@ -54,7 +54,7 @@ describe('the shell', () => {
 
   it('opens the theme from the address (?theme=dark) for captures and links', async () => {
     installApi()
-    renderAt('/?theme=dark')
+    renderAt('/runs?theme=dark')
     await screen.findByRole('heading', { level: 1, name: 'Runs' })
     expect(document.documentElement.classList.contains('dark')).toBe(true)
   })
@@ -63,9 +63,11 @@ describe('the shell', () => {
     installApi()
     renderAt('/nowhere')
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'This page is not part of the app' }),
+      await screen.findByRole('heading', { level: 1, name: 'This page is not in the trace' }),
     ).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'Back to the runs' }).getAttribute('href')).toBe('/')
+    expect(screen.getByText('/nowhere')).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Open the runs' }).getAttribute('href')).toBe('/runs')
+    expect(screen.getByRole('link', { name: 'How it works' }).getAttribute('href')).toBe('/')
     expect(await axe(document.body)).toEqual([])
   })
 
@@ -73,7 +75,7 @@ describe('the shell', () => {
     vi.stubGlobal('fetch', async () => {
       throw new TypeError('fetch failed')
     })
-    renderAt('/')
+    renderAt('/runs')
     expect(await screen.findByText("Couldn't load the app")).toBeTruthy()
     expect(
       screen.getByText('The API is not reachable. Start it with pnpm demo, then try again.'),

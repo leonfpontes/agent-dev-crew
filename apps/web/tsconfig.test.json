@@ -1,6 +1,6 @@
 {
   "extends": "./tsconfig.json",
-  "compilerOptions": { "types": ["vite/client", "node"] },
+  "compilerOptions": { "types": ["vite/client", "node"], "paths": { "@repo/*": ["../../*"] } },
   "include": ["src"],
   "exclude": []
 }

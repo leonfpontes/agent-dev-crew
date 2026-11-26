@@ -19,7 +19,7 @@ const rows = () => within(screen.getByRole('table')).getAllByRole('row').slice(1
 describe('Runs', () => {
   it('lists the runs with the one waiting for you first, and the numbers above', async () => {
     installApi()
-    renderAt('/')
+    renderAt('/runs')
     await screen.findByRole('table')
     const first = rows()[0]!
     expect(first.textContent).toContain('Waiting for you')
@@ -40,7 +40,7 @@ describe('Runs', () => {
 
   it('with the real scoreboard, says the runs are examples and points to the measured numbers', async () => {
     installApi({ scoreboard: 'real' })
-    renderAt('/')
+    renderAt('/runs')
     const footer = (await screen.findByText(/^Showing 8 of 8 example runs/)).closest('p')!
     expect(footer.textContent).toBe(
       'Showing 8 of 8 example runs · replay mode replays them without calling a model · the measured numbers are in Evaluation',
@@ -51,7 +51,7 @@ describe('Runs', () => {
   it('filters by status, variant and search, and says when nothing matches', async () => {
     installApi()
     const user = userEvent.setup()
-    renderAt('/')
+    renderAt('/runs')
     await screen.findByRole('table')
     await user.click(screen.getByRole('tab', { name: /Failed/ }))
     expect(rows().map((r) => r.textContent)).toEqual([
@@ -70,7 +70,7 @@ describe('Runs', () => {
   it('opens a run with the whole row, the arrow keys and Enter; / goes to the search', async () => {
     installApi()
     const user = userEvent.setup()
-    renderAt('/')
+    renderAt('/runs')
     await screen.findByRole('table')
     rows()[0]!.focus()
     await user.keyboard('{ArrowDown}')
@@ -88,7 +88,7 @@ describe('Runs', () => {
 
   it('keeps New run for live mode, and says how', async () => {
     installApi()
-    renderAt('/')
+    renderAt('/runs')
     const button = await screen.findByRole('button', { name: 'New run' })
     expect((button as HTMLButtonElement).disabled).toBe(true)
     expect(screen.getByText(/Live runs happen on your machine/)).toBeTruthy()
@@ -105,7 +105,7 @@ describe('Runs', () => {
       return new Response(JSON.stringify({ runId: 144 }), { status: 202 })
     })
     const user = userEvent.setup()
-    renderAt('/')
+    renderAt('/runs')
     await user.click(await screen.findByRole('button', { name: 'New run' }))
     const start = screen.getByRole('button', { name: 'Start run' })
     expect((start as HTMLButtonElement).disabled).toBe(true)
@@ -130,7 +130,7 @@ describe('Runs', () => {
             )
           : undefined,
     })
-    renderAt('/')
+    renderAt('/runs')
     expect(await screen.findByLabelText('Loading runs')).toBeTruthy()
     release()
     expect(await screen.findByRole('heading', { name: 'No runs on this machine yet' })).toBeTruthy()

@@ -15,6 +15,12 @@ importers:
       '@crew/api':
         specifier: workspace:*
         version: link:packages/api
+      '@crew/core':
+        specifier: workspace:*
+        version: link:packages/core
+      '@crew/engine':
+        specifier: workspace:*
+        version: link:packages/engine
       '@eslint/js':
         specifier: 10.0.1
         version: 10.0.1(eslint@10.15.0(jiti@2.7.0))

@@ -220,7 +220,7 @@ export function RunDetailPage({ id, meta }: { id: number; meta: Meta }) {
     return (
       <>
         <nav aria-label="Breadcrumb" className="mb-2 text-sm text-muted-foreground">
-          <Link href="/" className="text-muted-foreground no-underline hover:text-foreground">
+          <Link href="/runs" className="text-muted-foreground no-underline hover:text-foreground">
             Runs
           </Link>
         </nav>
@@ -415,7 +415,7 @@ export function RunDetailPage({ id, meta }: { id: number; meta: Meta }) {
     <>
       <nav aria-label="Breadcrumb" className="mb-2 flex items-center gap-1.5 text-sm text-muted-foreground">
         <Link
-          href="/"
+          href="/runs"
           className="inline-flex min-h-6 items-center text-muted-foreground no-underline hover:text-foreground max-[760px]:min-h-11"
         >
           Runs

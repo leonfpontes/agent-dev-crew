@@ -23,13 +23,17 @@ export const REPOSITORY_URL = 'https://github.com/leonfpontes/agent-dev-crew'
 
 type Tab = 'runs' | 'playbook' | 'evaluation'
 const TABS: { id: Tab; href: string; label: string; icon: IconName }[] = [
-  { id: 'runs', href: '/', label: 'Runs', icon: 'list' },
+  { id: 'runs', href: '/runs', label: 'Runs', icon: 'list' },
   { id: 'playbook', href: '/playbook', label: 'Playbook', icon: 'book' },
   { id: 'evaluation', href: '/evaluation', label: 'Evaluation', icon: 'chart' },
 ]
 
 const tabOf = (route: Route): Tab | null =>
-  route.name === 'runs' || route.name === 'run' ? 'runs' : route.name === 'not-found' ? null : route.name
+  route.name === 'runs' || route.name === 'run'
+    ? 'runs'
+    : route.name === 'playbook' || route.name === 'evaluation'
+      ? route.name
+      : null
 
 function ModeButton({ meta }: { meta: Meta | undefined }) {
   const [open, setOpen] = useState(false)
@@ -188,7 +192,7 @@ export function Shell({
       <header className="sticky top-0 z-10 border-b bg-background">
         <div className="flex h-14 items-center gap-4 px-6 max-[760px]:gap-2 max-[760px]:pr-3 max-[760px]:pl-4">
           <Link
-            href="/"
+            href="/runs"
             className="inline-flex min-h-11 items-center gap-2.5 text-[15px] leading-none font-semibold whitespace-nowrap text-foreground no-underline"
           >
             <Mark size={22} />

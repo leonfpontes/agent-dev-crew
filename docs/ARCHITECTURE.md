@@ -104,12 +104,21 @@ as a y / c / n prompt).
 The four screens read only the API above; every number on them comes from it. Components are
 `@leonfpontes/atlas-ui` from npm, with one color of its own, `--crew`, for the human gate.
 
-| Route         | Screen                                                                                              |
-| ------------- | --------------------------------------------------------------------------------------------------- |
-| `/`           | Runs: the run waiting at the gate first, status tabs, variant filter, search (`/`), arrow keys      |
-| `/runs/:id`   | Run detail; `?step=<id>` selects a step, `?section=summary\|trace\|diff\|retro` picks the phone tab |
-| `/playbook`   | Playbook; `#v<n>` opens a version in the history, `#engineer` (any role) scrolls to its rules       |
-| `/evaluation` | Evaluation                                                                                          |
+| Route         | Screen                                                                                                  |
+| ------------- | ------------------------------------------------------------------------------------------------------- |
+| `/`           | How it works: the public page (claim, a run summary, pipeline, trace, playbook, evaluation, quickstart) |
+| `/runs`       | Runs: the run waiting at the gate first, status tabs, variant filter, search (`/`), arrow keys          |
+| `/runs/:id`   | Run detail; `?step=<id>` selects a step, `?section=summary\|trace\|diff\|retro` picks the phone tab     |
+| `/playbook`   | Playbook; `#v<n>` opens a version in the history, `#engineer` (any role) scrolls to its rules           |
+| `/evaluation` | Evaluation                                                                                              |
+| `/share`      | The share images' artboards (not linked); any other path is the 404 page                                |
+
+Share images: `pnpm share-images` builds, serves the app like `pnpm demo` and screenshots `/share`
+into `apps/web/public/og.png` (the `og:image`), `docs/social-preview.png` (the repository's social
+preview, set by hand in the GitHub settings) and `docs/cover-light.png` / `docs/cover-dark.png` (the
+README cover), with the numbers they show in `docs/share.values.json`. A test fails when those
+numbers differ from the scoreboard or the replay run. `og:image` needs an absolute URL: the build
+reads `SITE_URL`, or Vercel's production domain.
 
 `?theme=dark` or `?theme=light` (also `?dark`) sets the theme for links and captures; otherwise the
 saved choice, then the system. `pnpm dev` serves the app on 127.0.0.1:5173 and sends `/api` to

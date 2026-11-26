@@ -4,7 +4,7 @@ import { createApi, loadReplay, type ReplayOptions } from '@crew/api/replay'
 import { render } from '@testing-library/react'
 import { vi } from 'vitest'
 
-import latest from '../../../../evals/results/latest.json'
+import latest from '@repo/evals/results/latest.json'
 import { App } from '../App'
 
 /** A fixed clock, so "2 min ago" and the waiting time don't depend on when the tests run. */
