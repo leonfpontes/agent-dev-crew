@@ -166,6 +166,9 @@ runs the learning epochs, the ablation and the curve's other rounds under hard b
 - **Budget:** before every model call the engine prices the worst case (the request's estimated input
   plus `maxTokens` of output); if it doesn't fit, the step fails with a `budget.exceeded` event and the
   run fails `over-budget` without making the call.
+- **Cut answers:** an answer that stops at `max_tokens` without a tool call has not finished. The engine
+  drops it (a cut thinking block may not go back to the API valid), adds `CUT_ANSWER_NOTE` to the last
+  user message, logs a warning and calls again; the turn counts toward `maxTurns` and is paid for.
 - **Fallback:** when the provider throws, the step retries once with the role's fallback model
   (`fallback_used = 1`, `attempt = 2`); a second failure fails the run with `error`.
 - **Hidden tests:** `scoreHiddenTests(trace, runId, repoDir, files)` copies them to `<copy>/hidden/`

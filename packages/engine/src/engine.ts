@@ -140,6 +140,21 @@ const estimateTokens = (value: unknown) => Math.ceil(JSON.stringify(value).lengt
 const testSummary = (t: TestReport) => (t.error ? 'tests did not run' : `${t.passed} / ${t.total}`)
 const testsPass = (t: TestReport) => t.error === undefined && t.failed === 0 && t.total > 0
 
+/** Added to the last user message when an answer ran out of output tokens before any tool call. */
+export const CUT_ANSWER_NOTE =
+  'Your last answer ran out of output tokens before you acted. Act now with a tool call; keep your reasoning short and write one file at a time.'
+
+/** The user message with the note at the end, once (after tool results, as a text block). */
+function withCutAnswerNote(message: Message): Message {
+  if (typeof message.content === 'string')
+    return message.content.endsWith(CUT_ANSWER_NOTE)
+      ? message
+      : { ...message, content: `${message.content}\n\n${CUT_ANSWER_NOTE}` }
+  const last = message.content.at(-1)
+  if (last?.type === 'text' && last.text === CUT_ANSWER_NOTE) return message
+  return { ...message, content: [...message.content, { type: 'text', text: CUT_ANSWER_NOTE }] }
+}
+
 export async function runCrew(options: RunCrewOptions): Promise<RunResult> {
   const { trace, provider, price, roles, request, variant } = options
   if (variant === 'crew-playbook' && !options.playbook)
@@ -240,11 +255,21 @@ export async function runCrew(options: RunCrewOptions): Promise<RunResult> {
         stopReason: response.stopReason,
         raw: response.raw ?? null,
       })
-      messages.push({ role: 'assistant', content: response.content })
-
       const calls = response.content.filter(
         (b): b is Extract<ContentBlock, { type: 'tool_use' }> => b.type === 'tool_use',
       )
+      if (calls.length === 0 && response.stopReason === 'max_tokens') {
+        // The answer ran out of output (often all of it reasoning) before the agent acted: it did not
+        // finish. The cut turn is dropped (a cut thinking block may not go back to the API valid), the
+        // last user message gets a nudge, and the loop goes on; the turn still counts.
+        rec.event(stepId, 'log', {
+          level: 'warn',
+          message: `The ${spec.agent} ran out of output tokens (${spec.maxTokens}) before acting; turn ${turn + 1} dropped, asking it to act.`,
+        })
+        messages[messages.length - 1] = withCutAnswerNote(messages[messages.length - 1]!)
+        continue
+      }
+      messages.push({ role: 'assistant', content: response.content })
       if (calls.length === 0) return { text, model: response.model, fallbackUsed, attempt }
 
       const results: ToolResultBlock[] = []

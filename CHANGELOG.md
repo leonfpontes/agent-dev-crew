@@ -4,6 +4,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions: [Sem
 
 ## [Unreleased]
 
+### Fixed
+
+- An answer cut at `max_tokens` before any tool call no longer ends the step as finished: the engine drops it, asks the agent to act and goes on, within `maxTurns`.
+
 ### Added
 
 - Repository skeleton: README, agent rules, CI, secret scanning, Dependabot and ADR 0001.

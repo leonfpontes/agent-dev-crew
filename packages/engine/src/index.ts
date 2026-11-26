@@ -1,4 +1,10 @@
-export { CREW_PIPELINE, DEFAULT_BUDGET_MICROS, MAX_PLAN_REVISIONS, runCrew } from './engine.js'
+export {
+  CREW_PIPELINE,
+  CUT_ANSWER_NOTE,
+  DEFAULT_BUDGET_MICROS,
+  MAX_PLAN_REVISIONS,
+  runCrew,
+} from './engine.js'
 export type { CrewRequest, RetroContext, RetroResult, RunCrewOptions, RunResult } from './engine.js'
 export { approveByPolicy, checkGateResult, scriptedGate } from './gate.js'
 export type { GateDecider, GateRequest, GateResult } from './gate.js'

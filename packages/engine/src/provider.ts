@@ -74,13 +74,17 @@ export function flatPrice(inputPerMillionUsd: number, outputPerMillionUsd: numbe
     )
 }
 
-/** What a scripted turn returns: the content blocks of the answer, or an error to throw. */
-export type ScriptedTurn = ContentBlock[] | Error
+/**
+ * What a scripted turn returns: the content blocks of the answer, an error to throw, or the blocks
+ * with an explicit stop reason (a cut answer: `{ content: [], stopReason: 'max_tokens' }`).
+ */
+export type ScriptedTurn = ContentBlock[] | Error | { content: ContentBlock[]; stopReason: string }
 export type Script = (request: ModelRequest, turn: number) => ScriptedTurn
 
 /**
  * A provider that answers from a script, per agent, for tests and replays. The turn is the number of
- * answers already in the conversation, so every step starts at turn 0. Usage is estimated from the
+ * answers already in the conversation, so every step starts at turn 0. The engine drops an answer cut
+ * at max_tokens, so the call after one sees the same turn, with CUT_ANSWER_NOTE in the last message. Usage is estimated from the
  * text length, so budgets and costs behave like a real run without an API call.
  */
 export class ScriptedProvider implements ModelProvider {
@@ -89,18 +93,25 @@ export class ScriptedProvider implements ModelProvider {
   constructor(private readonly scripts: Partial<Record<Caller, Script>>) {}
 
   async complete(request: ModelRequest): Promise<ModelResponse> {
-    this.calls.push(request)
+    // A copy of the conversation as sent: the engine keeps appending to (and may edit) its array.
+    this.calls.push({ ...request, messages: [...request.messages] })
     const script = this.scripts[request.agent]
     if (!script) throw new Error(`No script for the ${request.agent}.`)
     const turn = request.messages.filter((m) => m.role === 'assistant').length
     const answer = script(request, turn)
     if (answer instanceof Error) throw answer
+    const content = Array.isArray(answer) ? answer : answer.content
+    const stopReason = Array.isArray(answer)
+      ? content.some((b) => b.type === 'tool_use')
+        ? 'tool_use'
+        : 'end_turn'
+      : answer.stopReason
     const inputChars = JSON.stringify([request.system, request.messages]).length
-    const outputChars = JSON.stringify(answer).length
+    const outputChars = JSON.stringify(content).length
     return {
       model: request.model,
-      content: answer,
-      stopReason: answer.some((b) => b.type === 'tool_use') ? 'tool_use' : 'end_turn',
+      content,
+      stopReason,
       usage: {
         inputTokens: Math.ceil(inputChars / 4),
         cacheReadTokens: 0,

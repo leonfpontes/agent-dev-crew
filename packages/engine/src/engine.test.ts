@@ -6,6 +6,7 @@ import { afterAll, describe, expect, it } from 'vitest'
 
 import {
   approveByPolicy,
+  CUT_ANSWER_NOTE,
   flatPrice,
   runCrew,
   scoreHiddenTests,
@@ -275,6 +276,54 @@ describe('runCrew · budget, fallback and failures', () => {
       status: 'failed',
       summary: 'no plan submitted',
     })
+  })
+
+  it('does not end a step on an answer cut at max_tokens: drops it, nudges the agent and goes on', async () => {
+    const cut = { content: [], stopReason: 'max_tokens' }
+    const hasNote = (req: { messages: { content: unknown }[] }) =>
+      JSON.stringify(req.messages.at(-1)!.content).includes(CUT_ANSWER_NOTE)
+    const provider = new ScriptedProvider({
+      po: (req) => (hasNote(req) ? [toolUse('submit_plan', PLAN)] : cut),
+    })
+    const opts = options(provider, {
+      gate: scriptedGate([{ decision: 'reject', by: 'person', comment: 'Stop here.' }]),
+    })
+    const result = await runCrew(opts)
+    const plan = getRun(opts.trace, result.runId)!.steps[0]!
+    expect(plan).toMatchObject({ kind: 'plan', status: 'passed' })
+    expect(provider.calls).toHaveLength(2)
+    // The cut turn is not sent back; the note goes at the end of the first user message.
+    const second = provider.calls[1]!.messages
+    expect(second).toHaveLength(1)
+    expect(second[0]).toMatchObject({ role: 'user' })
+    expect(second[0]!.content as string).toMatch(new RegExp(`\\n\\n${CUT_ANSWER_NOTE}$`))
+    expect(provider.calls[0]!.messages[0]!.content as string).not.toContain(CUT_ANSWER_NOTE)
+    const events = stepEvents(opts.trace, plan.id)
+    expect(events.filter((e) => e.kind === 'model.request')).toHaveLength(2)
+    expect(events.find((e) => e.kind === 'log')?.payload).toMatchObject({
+      level: 'warn',
+      message: expect.stringMatching(/ran out of output tokens/),
+    })
+    expect(plan.cost_micros).toBeGreaterThan(0) // the cut answer is still paid for
+  })
+
+  it('puts the note after the tool results, once, and counts cut turns in maxTurns', async () => {
+    const cut = { content: [], stopReason: 'max_tokens' }
+    const provider = new ScriptedProvider({
+      po: (_req, turn) => (turn === 0 ? [toolUse('list_files', {})] : cut),
+    })
+    const opts = options(provider, { roles: testRoles({ po: { maxTurns: 4 } }) })
+    const result = await runCrew(opts)
+    expect(result.failureReason).toBe('error')
+    const step = getRun(opts.trace, result.runId)!.steps[0]!
+    const logs = stepEvents(opts.trace, step.id).filter((e) => e.kind === 'log')
+    expect(logs.map((e) => (e.payload as { level: string }).level)).toEqual(['warn', 'warn', 'warn', 'error'])
+    expect((logs.at(-1)!.payload as { message: string }).message).toMatch(/used all 4 turns/)
+    expect(provider.calls).toHaveLength(4)
+    const last = provider.calls[3]!.messages
+    expect(last.map((m) => m.role)).toEqual(['user', 'assistant', 'user'])
+    const blocks = last[2]!.content as { type: string }[]
+    expect(blocks.map((b) => b.type)).toEqual(['tool_result', 'text'])
   })
 
   it('fails a step that runs out of turns', async () => {
