@@ -6,7 +6,7 @@ import { afterAll, describe, expect, it } from 'vitest'
 
 import {
   BLOCKER,
-  NODE_MODULES,
+  nodeModulesDir,
   permissionFlags,
   prepareForVitest,
   runNodeScript,
@@ -149,7 +149,7 @@ test('test code stays in the sandbox', async () => {
   }, 60_000)
 
   it('reads its dependencies from the store, not the whole repository', () => {
-    expect(path.basename(NODE_MODULES)).toMatch(/^(\.pnpm|node_modules)$/)
+    expect(path.basename(nodeModulesDir())).toMatch(/^(\.pnpm|node_modules)$/)
   })
 
   it('says why when the runner itself fails', async () => {

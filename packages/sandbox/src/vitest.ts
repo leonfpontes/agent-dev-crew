@@ -27,20 +27,24 @@ export interface TestReport {
 }
 
 const require = createRequire(import.meta.url)
-const VITEST = path.join(path.dirname(require.resolve('vitest/package.json')), 'vitest.mjs')
+let vitestPath: string | undefined
+/** Vitest's CLI, resolved on first use (importing the sandbox must not need Vitest installed). */
+const vitestEntry = () =>
+  (vitestPath ??= path.join(path.dirname(require.resolve('vitest/package.json')), 'vitest.mjs'))
+
 /**
  * Where the runner and its dependencies are installed, read-only for the sandbox: pnpm's store
  * (`node_modules/.pnpm`) when there is one, else the `node_modules` folder that holds Vitest.
  */
-export const NODE_MODULES = (() => {
-  const real = realPath(VITEST)
+export function nodeModulesDir(): string {
+  const real = realPath(vitestEntry())
   const store = real.lastIndexOf(`${path.sep}node_modules${path.sep}.pnpm${path.sep}`)
   if (store >= 0) return real.slice(0, store + `${path.sep}node_modules${path.sep}.pnpm`.length)
   return real.slice(
     0,
     real.lastIndexOf(`${path.sep}node_modules${path.sep}`) + `${path.sep}node_modules`.length,
   )
-})()
+}
 
 /** Writes the files the sandboxed runner needs at the root of a repository copy. */
 export function prepareForVitest(repoDir: string, include: string[] = ['tests/**/*.test.ts']): void {
@@ -93,8 +97,8 @@ export async function runVitest(
   rmSync(path.join(repo, '.test-results.json'), { force: true })
   const started = Date.now()
   const result = await runNodeScript(
-    VITEST,
-    { read: [repo, NODE_MODULES], write: [repo], childProcesses: true, addons: true },
+    vitestEntry(),
+    { read: [repo, nodeModulesDir()], write: [repo], childProcesses: true, addons: true },
     { cwd: repo, timeoutMs },
     ['run', '--root', repo, '--configLoader', 'native'],
   )
