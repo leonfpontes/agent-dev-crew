@@ -50,6 +50,7 @@ import {
   SORTS,
   sortRows,
   spread,
+  type LabelIn,
   type SortKey,
 } from '../lib/evaluation'
 import { useApi } from '../lib/api'
@@ -149,7 +150,7 @@ function LearningCurve({ data, versions }: { data: EvaluationResponse; versions:
     .map((v) => ({ v, s: byVariant(data.main, v) }))
     .filter((b): b is { v: 'single-agent' | 'crew'; s: VariantStats } => !!b.s)
   // One label per baseline, under its band; equal baselines share a label, and labels never touch.
-  const baseLabels: { text: string; y: number }[] = []
+  const baseLabels: { text: string; y: number; styles: string[] }[] = []
   for (const { v, s } of [...baselines].sort((a, b) => b.s.passRate.mean - a.s.passRate.mean)) {
     const text = `${percent(s.passRate.mean)} ${sdPoints(s.passRate.sd)}`
     const name = v === 'single-agent' ? 'one agent' : 'crew, no playbook'
@@ -158,13 +159,27 @@ function LearningCurve({ data, versions }: { data: EvaluationResponse; versions:
         l.text.endsWith(` ${text}`) &&
         Math.abs(l.y - (y(Math.max(0, s.passRate.mean - s.passRate.sd)) + 14)) < 1,
     )
+    const style = v === 'single-agent' ? 'dotted' : 'dashed'
     if (same) {
       same.text = `${same.text.slice(0, -text.length - 1)} and ${name} ${text}`
+      same.styles.push(style)
       continue
     }
     const want = y(Math.max(0, s.passRate.mean - s.passRate.sd)) + 14
     const prev = baseLabels.at(-1)
-    baseLabels.push({ text: `${name} ${text}`, y: prev && want < prev.y + 14 ? prev.y + 14 : want })
+    baseLabels.push({
+      text: `${name} ${text}`,
+      y: prev && want < prev.y + 14 ? prev.y + 14 : want,
+      styles: [style],
+    })
+  }
+  // A point's value goes above its error bar, or below it when a reference line or its label is
+  // within 14 px of that spot.
+  const references = baselines.map(({ s }) => y(s.passRate.mean))
+  const valueY = (p: (typeof points)[number]) => {
+    const above = y(Math.min(1, p.passRate.mean + p.passRate.sd)) - 8
+    const clash = references.some((r) => Math.abs(r - (above - 4)) < 14)
+    return clash ? y(Math.max(0, p.passRate.mean - p.passRate.sd)) + 18 : above
   }
   const measured = new Set(points.map((p) => p.playbookVersion))
   const unmeasured = Array.from({ length: maxV }, (_, i) => i + 1).filter((v) => !measured.has(v))
@@ -229,12 +244,13 @@ function LearningCurve({ data, versions }: { data: EvaluationResponse; versions:
           {baseLabels.map((b) => {
             // Right-aligned, unless a point of the curve sits under the text; then left-aligned, then lower.
             const w = labelWidth(b.text) * 1.15
+            // A reference label avoids the points and their values.
             const covers = (l: number, r: number, yy: number) =>
               points.some(
                 (p) =>
-                  x(p.playbookVersion) + 9 > l &&
-                  x(p.playbookVersion) - 9 < r &&
-                  Math.abs(y(p.passRate.mean) - (yy - 4)) < 14,
+                  x(p.playbookVersion) + 14 > l &&
+                  x(p.playbookVersion) - 14 < r &&
+                  (Math.abs(y(p.passRate.mean) - (yy - 4)) < 14 || Math.abs(valueY(p) - yy) < 14),
               )
             let yy = b.y
             while (covers(R - 4 - w, R - 4, yy) && covers(L + 4, L + 4 + w, yy) && yy < Y0 - 4) yy += 14
@@ -289,12 +305,7 @@ function LearningCurve({ data, versions }: { data: EvaluationResponse; versions:
         </g>
         <g className="fill-foreground">
           {points.map((p) => (
-            <text
-              key={p.playbookVersion}
-              x={x(p.playbookVersion)}
-              y={y(Math.min(1, p.passRate.mean + p.passRate.sd)) - 8}
-              textAnchor="middle"
-            >
+            <text key={p.playbookVersion} x={x(p.playbookVersion)} y={valueY(p)} textAnchor="middle">
               {Math.round(p.passRate.mean * 100)}
             </text>
           ))}
@@ -344,7 +355,14 @@ function LearningCurve({ data, versions }: { data: EvaluationResponse; versions:
       {narrow && baseLabels.length > 0 && (
         <ul aria-hidden="true" className="mt-2 grid gap-1 text-xs text-muted-foreground">
           {baseLabels.map((b) => (
-            <li key={b.text}>Dashed line: {b.text}</li>
+            <li key={b.text}>
+              {b.styles.length > 1
+                ? 'Dotted and dashed lines'
+                : b.styles[0] === 'dotted'
+                  ? 'Dotted line'
+                  : 'Dashed line'}
+              : {b.text}
+            </li>
           ))}
         </ul>
       )}
@@ -435,7 +453,7 @@ function CostQuality({ data }: { data: EvaluationResponse }) {
   const placed = placeLabelsFor(
     order,
     labels,
-    (s) => ({ x: x(s.costMicrosPerRequest.mean / 1e6), y: y(s.passRate.mean) }),
+    (s) => ({ x: x(s.costMicrosPerRequest.mean / 1e6), y: y(s.passRate.mean), prefer: PREFER[s.variant] }),
     { left: L, right: R, top: 12, bottom: 232 },
   )
   const text = (s: VariantStats) =>
@@ -573,10 +591,17 @@ function CostQuality({ data }: { data: EvaluationResponse }) {
 }
 
 /** Labels for the marks, placed from the highest mark down; returned in the marks' order. */
+/** Each variant's label next to its own mark: the circle's on the left, the square's above, the triangle's below. */
+const PREFER: Record<Variant, LabelIn['prefer']> = {
+  'single-agent': 'left',
+  crew: 'above',
+  'crew-playbook': 'below',
+}
+
 function placeLabelsFor<T>(
   items: T[],
   texts: string[],
-  at: (item: T) => { x: number; y: number },
+  at: (item: T) => { x: number; y: number; prefer?: LabelIn['prefer'] },
   plot: Parameters<typeof placeLabels>[1],
 ) {
   const idx = items.map((_, i) => i).sort((a, b) => at(items[a]!).y - at(items[b]!).y)
@@ -651,8 +676,8 @@ function Metrics({ data }: { data: EvaluationResponse }) {
       cell: (s) =>
         crewOnly(s) ? (
           <>
-            <b className="font-medium">{s.fixLoopsPerRequest.mean.toFixed(1)}</b>{' '}
-            <small className="text-xs text-muted-foreground">± {s.fixLoopsPerRequest.sd.toFixed(1)}</small>
+            <b className="font-medium">{s.fixLoopsPerRequest.mean.toFixed(2)}</b>{' '}
+            <small className="text-xs text-muted-foreground">± {s.fixLoopsPerRequest.sd.toFixed(2)}</small>
           </>
         ) : (
           <span className="text-muted-foreground">does not apply</span>
@@ -830,13 +855,15 @@ function Matrix({ data }: { data: EvaluationResponse }) {
 
 function Command({ data }: { data: EvaluationResponse }) {
   const s = scope(data)
+  const hard = data.set === 'hard'
+  const command = hard ? `${EVAL_COMMAND} --set hard` : EVAL_COMMAND
   return (
     <section aria-labelledby="h-h" className="mt-6">
       <SectionHead id="h-h" title="How we measure it" />
-      <CodeBlock title="Terminal" copyText={`$ ${EVAL_COMMAND}`}>
-        {`$ ${EVAL_COMMAND}\n`}
+      <CodeBlock title="Terminal" copyText={`$ ${command}`}>
+        {`$ ${command}\n`}
         <span className="text-code-dim">
-          {`# ${s.requests} requests × ${s.variants} variants × ${s.rounds} rounds, then the learning curve${data.model ? ` · ${data.model}` : ''}\n# hidden tests run in a sandbox · a logged policy approves the gate · results → evals/results/latest.json`}
+          {`# ${s.requests} requests × ${s.variants} variants × ${s.rounds} rounds, then the learning curve${data.model ? ` · ${data.model}` : ''}\n# hidden tests run in a sandbox · a logged policy approves the gate · results → evals/results/${hard ? 'hard' : 'latest'}.json`}
         </span>
       </CodeBlock>
     </section>
@@ -872,7 +899,7 @@ export function EvaluationPage({ meta }: { meta: Meta }) {
       <Tabs value={set} onValueChange={(v) => setQuery('set', v === sets[0] ? null : v)} className="gap-0">
         <TabsList aria-label="Request set" className="mb-5 max-[760px]:w-full max-[760px]:overflow-x-auto">
           {sets.map((s) => (
-            <TabsTrigger key={s} value={s} className="whitespace-nowrap">
+            <TabsTrigger key={s} value={s} className="flex-none px-3 whitespace-nowrap">
               {SET_TAB[s](counts[s])}
             </TabsTrigger>
           ))}
@@ -885,8 +912,9 @@ export function EvaluationPage({ meta }: { meta: Meta }) {
       page
     )
 
+  // The tabs stay on screen while a set loads, so the keyboard focus stays on the chosen tab.
   if (load.state === 'loading')
-    return (
+    return withTabs(
       <div role="status" aria-busy="true" aria-label="Loading the evaluation" className="grid gap-4">
         <Skeleton className="h-4 w-60" />
         <Skeleton className="h-16 w-3/4" />
@@ -895,10 +923,10 @@ export function EvaluationPage({ meta }: { meta: Meta }) {
           <Skeleton className="h-72" />
           <Skeleton className="h-72" />
         </div>
-      </div>
+      </div>,
     )
   if (load.state === 'error')
-    return <LoadError what="the evaluation" error={load.error} onRetry={load.reload} />
+    return withTabs(<LoadError what="the evaluation" error={load.error} onRetry={load.reload} />)
 
   const data = load.data
   if (data.main.length === 0)

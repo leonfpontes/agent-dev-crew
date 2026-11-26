@@ -109,3 +109,20 @@ describe('Evaluation · two request sets', () => {
     expect(screen.queryByRole('tablist', { name: 'Request set' })).toBeNull()
   })
 })
+
+describe('Evaluation · set tabs and the keyboard', () => {
+  it('keeps the focus on the chosen tab while the other set loads', async () => {
+    installApi({ scoreboard: 'real' })
+    const user = userEvent.setup()
+    renderAt('/evaluation')
+    const tabs = await screen.findByRole('tablist', { name: 'Request set' })
+    const [hard] = within(tabs).getAllByRole('tab')
+    hard!.focus()
+    await user.keyboard('{ArrowRight}')
+    await screen.findByRole('heading', { name: 'Per request' })
+    const easy = within(screen.getByRole('tablist', { name: 'Request set' })).getAllByRole('tab')[1]!
+    expect(new URLSearchParams(window.location.search).get('set')).toBe('easy')
+    expect(easy.getAttribute('aria-selected')).toBe('true')
+    expect(document.activeElement).toBe(easy)
+  })
+})

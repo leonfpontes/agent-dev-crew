@@ -163,6 +163,8 @@ export interface LabelIn {
   x: number
   y: number
   text: string
+  /** The side to try first, so each label sits next to its own mark. */
+  prefer?: 'above' | 'below' | 'left' | 'right'
 }
 export interface LabelOut {
   x: number
@@ -191,11 +193,18 @@ export function placeLabels(
   return marks.map((m) => {
     const w = labelWidth(m.text)
     const clampX = (x: number) => Math.min(Math.max(x, plot.left + w / 2), plot.right - w / 2)
+    const sides: Record<NonNullable<LabelIn['prefer']>, LabelOut> = {
+      above: { x: clampX(m.x), y: m.y - 16, anchor: 'middle' },
+      below: { x: clampX(m.x), y: m.y + 26, anchor: 'middle' },
+      right: { x: m.x + 16, y: m.y + 4, anchor: 'start' },
+      left: { x: m.x - 16, y: m.y + 4, anchor: 'end' },
+    }
     const tries: LabelOut[] = [
-      { x: clampX(m.x), y: m.y - 16, anchor: 'middle' },
-      { x: clampX(m.x), y: m.y + 26, anchor: 'middle' },
-      { x: m.x + 16, y: m.y + 4, anchor: 'start' },
-      { x: m.x - 16, y: m.y + 4, anchor: 'end' },
+      ...(m.prefer ? [sides[m.prefer]] : []),
+      sides.above,
+      sides.below,
+      sides.right,
+      sides.left,
       ...[1, 2, 3, 4].map((k): LabelOut => ({ x: clampX(m.x), y: m.y + 26 + k * 16, anchor: 'middle' })),
       ...[1, 2, 3].map((k): LabelOut => ({ x: clampX(m.x), y: m.y - 16 - k * 16, anchor: 'middle' })),
     ]
