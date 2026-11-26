@@ -82,6 +82,8 @@ export interface RunCrewOptions {
   budgetMicros?: number
   clock?: () => number
   testTimeoutMs?: number
+  /** Called once the run row exists, before any model call (the live API answers with the id). */
+  onStart?: (runId: number) => void
   /** Runs after the pipeline, in its own step; it blocks nothing (the AI story plugs in the retro). */
   retro?: (context: RetroContext) => Promise<RetroResult>
 }
@@ -160,6 +162,7 @@ export async function runCrew(options: RunCrewOptions): Promise<RunResult> {
     budgetMicros: budget,
   })
   const workspace = createWorkspace(options.exampleDir, options.workRoot, rec.runId)
+  options.onStart?.(rec.runId)
   const playbook = variant === 'crew-playbook' ? options.playbook : undefined
 
   /** One step of model work: calls the model until it stops calling tools (or submits). */
@@ -308,6 +311,7 @@ export async function runCrew(options: RunCrewOptions): Promise<RunResult> {
     const diff = workspaceDiff(workspace)
     if (options.retro && status !== 'rejected') {
       const stepId = rec.startStep({ kind: 'retro' })
+      let retroModel: string | undefined
       const complete = async (request: ModelRequest, promptFile: string) => {
         const estimate = price(request.model, {
           inputTokens: estimateTokens([request.system, request.messages, request.tools]),
@@ -333,6 +337,7 @@ export async function runCrew(options: RunCrewOptions): Promise<RunResult> {
           raw: { model: request.model, max_tokens: request.maxTokens, messages: request.messages.length },
         })
         const response = await provider.complete(request)
+        retroModel = response.model
         rec.cost(stepId, response.model, response.usage, price(response.model, response.usage))
         rec.event(stepId, 'model.response', {
           text: response.content
@@ -357,10 +362,14 @@ export async function runCrew(options: RunCrewOptions): Promise<RunResult> {
           complete,
         })
         for (const lesson of retro.lessons) rec.event(stepId, 'lesson.proposed', lesson)
-        rec.finishStep(stepId, { status: 'passed', summary: `${retro.lessons.length} lessons` })
+        rec.finishStep(stepId, {
+          status: 'passed',
+          summary: `${retro.lessons.length} lessons`,
+          model: retroModel,
+        })
       } catch (error) {
         rec.event(stepId, 'log', { level: 'error', message: (error as Error).message })
-        rec.finishStep(stepId, { status: 'failed', summary: 'retro failed' })
+        rec.finishStep(stepId, { status: 'failed', summary: 'retro failed', model: retroModel })
       }
     }
     rec.finishRun({

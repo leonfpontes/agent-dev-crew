@@ -286,6 +286,50 @@ describe('runCrew · budget, fallback and failures', () => {
   })
 })
 
+describe('runCrew · hooks', () => {
+  it('reports the run id before any model call, and records the retro model call on its own step', async () => {
+    const provider = new ScriptedProvider({
+      po: turns([toolUse('submit_plan', PLAN)]),
+      retro: turns([text('No lessons.')]),
+    })
+    let started = 0
+    const opts = options(provider, {
+      gate: scriptedGate([{ decision: 'reject', by: 'person', comment: 'Stop.' }]),
+      onStart: (id) => {
+        started = id
+        expect(provider.calls).toHaveLength(0)
+      },
+      retro: async (ctx) => {
+        await ctx.complete(
+          {
+            agent: 'retro',
+            model: 'model-small',
+            system: 'retro',
+            messages: [{ role: 'user', content: 'go' }],
+            tools: [],
+            maxTokens: 100,
+          },
+          'prompts/retro.md',
+        )
+        return { lessons: [] }
+      },
+    })
+    const result = await runCrew(opts)
+    expect(started).toBe(result.runId)
+    // A rejected run has no retro; a failed one does.
+    expect(getRun(opts.trace, result.runId)!.steps.some((s) => s.kind === 'retro')).toBe(false)
+    const failing = await runCrew({
+      ...opts,
+      onStart: undefined,
+      gate: approveByPolicy,
+      provider: new ScriptedProvider({ po: turns(), retro: turns([text('No lessons.')]) }),
+    })
+    const retro = getRun(opts.trace, failing.runId)!.steps.find((s) => s.kind === 'retro')!
+    expect(retro).toMatchObject({ status: 'passed', model: 'model-small', summary: '0 lessons' })
+    expect(retro.cost_micros).toBeGreaterThan(0)
+  })
+})
+
 describe('runCrew · single agent and playbook', () => {
   it('runs one solo step, then the tests, with no gate', async () => {
     const provider = new ScriptedProvider({
