@@ -124,7 +124,7 @@ to both, and the app shows the API's `how`).
 
 Two sets of requests run on the same, unchanged `fernhill-orders`: the **easy** set
 (`evals/requests/`, 10 one-rule requests, 51 hidden tests, the baseline of the first evaluation) and the
-**hard** set (`evals/requests-hard/`, 10 multi-step requests across files with subtle rules, 60 hidden
+**hard** set (`evals/requests-hard/`, 10 multi-step requests across files with subtle rules, 74 hidden
 tests). Each set has a `requests.json`, and `<set>/<id>/` holds the hidden test files and a reference
 `solution/` (files that replace or add to `src/` of the example). The engine never puts `evals/` in a
 sandbox read list. After the crew finishes, the harness copies the hidden tests into the run's copy of

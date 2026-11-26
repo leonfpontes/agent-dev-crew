@@ -3,7 +3,7 @@ import type { Context } from '../context.js'
 import { fail, json, readJson, type Router } from '../http.js'
 import { priced } from '../pricing.js'
 
-export function cartRoutes(router: Router, { db }: Context): void {
+export function cartRoutes(router: Router, { db, now }: Context): void {
   router.post('/carts', async (req) => {
     const body = (await readJson(req)) as { customerId?: unknown } | undefined
     if (typeof body?.customerId !== 'string') return fail(400, 'customerId is required')
@@ -13,7 +13,7 @@ export function cartRoutes(router: Router, { db }: Context): void {
 
   router.get('/carts/:id', async (_req, { id }) => {
     const cart = await db.carts.find(id as string)
-    return cart ? json({ ...cart, lines: await priced(db, cart.lines) }) : fail(404, 'Cart not found')
+    return cart ? json({ ...cart, lines: await priced(db, cart.lines, now()) }) : fail(404, 'Cart not found')
   })
 
   router.post('/carts/:id/items', async (req, { id }) => {
@@ -49,7 +49,7 @@ export function cartRoutes(router: Router, { db }: Context): void {
             lineCents: unitCents * (quantity as number),
           },
         ]
-    const updated = await db.carts.update(cart.id, { lines: await priced(db, lines) })
+    const updated = await db.carts.update(cart.id, { lines: await priced(db, lines, now()) })
     return json(updated)
   })
 }

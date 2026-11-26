@@ -45,18 +45,18 @@ same example and asks for changes that take several steps across 2 to 6 files, w
 request states is easy to miss. Every expected status code, field and error message is written in the
 request; nothing is hidden.
 
-| Request                  | What makes it hard                                                                                                       |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| `stock-reservations`     | A new route, stock taken when an order is placed and given back on cancel; the first failing line decides, nothing moves |
-| `promotions`             | Two promotions listed in a fixed order; the tax rounded once per order, which the current code doesn't do                |
-| `store-timezone-reports` | Days in America/New_York across both daylight saving changes; a range report with empty days; dates that don't exist     |
-| `split-shipments`        | Partial shipments next to the old ship route, a new status, checks in a stated order, lines that must not change         |
-| `loyalty-points`         | Points earned at payment, redeemed at placement, with five conditions; the tax on the discounted subtotal, once          |
-| `idempotency-keys`       | Replays per path compared by JSON value, errors not remembered, a 24-hour expiry on the app clock                        |
-| `returns`                | A 30-day window, a tax share per return, and a last return that refunds exactly what is left of the total                |
-| `price-changes`          | Carts at today's price, orders frozen at placement, a price history that skips repeats                                   |
-| `order-query`            | Seven combinable parameters, ties by id in both directions, the first invalid parameter named in a fixed order           |
-| `gift-cards`             | A payment, not a discount: totals unchanged, an order placed already paid, codes that ignore case                        |
+| Request                  | What makes it hard                                                                                                                                 |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stock-reservations`     | A new route, stock taken when an order is placed and given back on cancel, and no overselling when orders race for the last units                  |
+| `promotions`             | Three promotions in a fixed order, one measured after the others and limited to once per customer per New York day; the tax rounded once per order |
+| `store-timezone-reports` | Days and Monday-start weeks in America/New_York across both daylight saving changes; empty days; dates that don't exist                            |
+| `split-shipments`        | Partial shipments next to the old ship route, a new status, checks in a stated order, and shipments that race for the same units                   |
+| `loyalty-points`         | Points earned at payment and redeemed at placement, a gold rate from 500 lifetime points, and cancels that give back and take back points          |
+| `idempotency-keys`       | Replays per path compared by JSON value, errors not remembered, a 24-hour expiry, and a retry that arrives while the first is running              |
+| `returns`                | A 30-day window, a tax share per return, a restocking fee from day 14, and a last return that closes the total                                     |
+| `price-changes`          | Carts at the price of the moment, scheduled prices that start on the app clock, orders frozen at placement                                         |
+| `order-query`            | Seven combinable parameters, a sort over several keys with status in lifecycle order, the first invalid parameter named                            |
+| `gift-cards`             | A payment, not a discount: totals unchanged, an order placed already paid, codes that ignore case                                                  |
 
 ## Limits
 

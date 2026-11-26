@@ -70,7 +70,7 @@ describe('multi-buy promotions', () => {
     })
   })
 
-  it('Coffee and milk: $1.50 off each pair of one bag of coffee and one oat milk', async () => {
+  it('Coffee and milk: $1.50 off each pair; no Big basket when the pairs bring the subtotal under $50.00', async () => {
     const res = await api().order('cus_ben', [
       ['COF-BEAN-500', 3],
       ['MLK-OAT-1L', 2],
@@ -81,6 +81,45 @@ describe('multi-buy promotions', () => {
       promotions: [{ name: 'Coffee and milk', discountCents: 300 }],
       taxCents: 392,
       totalCents: 5287,
+    })
+  })
+
+  it('Big basket: $5.00 off at $50.00 or more after the other promotions, once per customer per New York day', async () => {
+    const a = api()
+    const big = await a.order('cus_ada', [['COF-BEAN-500', 4]])
+    expect(big.body).toMatchObject({
+      subtotalCents: 5996,
+      discountCents: 500,
+      promotions: [{ name: 'Big basket', discountCents: 500 }],
+      taxCents: 440,
+      totalCents: 5936,
+    })
+    a.at('2026-11-21T03:00:00Z') // still 2026-11-20 in New York
+    const again = await a.order('cus_ada', [['COF-BEAN-500', 4]])
+    expect(again.body).toMatchObject({ discountCents: 0, promotions: [], taxCents: 480, totalCents: 6476 })
+    expect((await a.order('cus_ben', [['COF-BEAN-500', 4]])).body.discountCents).toBe(500)
+    a.at('2026-11-21T06:00:00Z') // 2026-11-21 in New York
+    expect((await a.order('cus_ada', [['COF-BEAN-500', 4]])).body.promotions).toEqual([
+      { name: 'Big basket', discountCents: 500 },
+    ])
+  })
+
+  it('applies all three in order, Big basket last', async () => {
+    const res = await api().order('cus_ada', [
+      ['APL-GALA-1KG', 9],
+      ['MLK-OAT-1L', 1],
+      ['COF-BEAN-500', 3],
+    ])
+    expect(res.body).toMatchObject({
+      subtotalCents: 8896,
+      discountCents: 2000,
+      promotions: [
+        { name: 'Apples 3 for 2', discountCents: 1350 },
+        { name: 'Coffee and milk', discountCents: 150 },
+        { name: 'Big basket', discountCents: 500 },
+      ],
+      taxCents: 552,
+      totalCents: 7448,
     })
   })
 

@@ -2,6 +2,7 @@
 import type { Context } from '../context.js'
 import { fail, json, readJson, type Router } from '../http.js'
 import { formatCents, totalsOf } from '../money.js'
+import { GOLD_FROM } from './customers.js'
 import type { Order } from '../types.js'
 
 export function orderRoutes(router: Router, { db, now }: Context): void {
@@ -42,6 +43,7 @@ export function orderRoutes(router: Router, { db, now }: Context): void {
       lines: cart.lines,
       ...totalsOf(cart.lines, redeem),
       pointsRedeemed: redeem,
+      pointsEarned: 0,
       discountCents: redeem,
       status: 'pending',
       createdAt: now().toISOString(),
@@ -55,11 +57,17 @@ export function orderRoutes(router: Router, { db, now }: Context): void {
     if (!order) return fail(404, 'Order not found')
     if (order.status !== 'pending') return fail(409, `A ${order.status} order cannot be paid`)
     const customer = await db.customers.find(order.customerId)
+    let pointsEarned = 0
     if (customer) {
-      const earned = Math.floor((order.subtotalCents - order.discountCents) / 100)
-      await db.customers.update(customer.id, { points: (customer.points ?? 0) + earned })
+      const lifetime = customer.lifetimePoints ?? 0
+      const rate = lifetime >= GOLD_FROM ? 2 : 1
+      pointsEarned = rate * Math.floor((order.subtotalCents - order.discountCents) / 100)
+      await db.customers.update(customer.id, {
+        points: (customer.points ?? 0) + pointsEarned,
+        lifetimePoints: lifetime + pointsEarned,
+      })
     }
-    return json(await db.orders.update(order.id, { status: 'paid' }))
+    return json(await db.orders.update(order.id, { status: 'paid', pointsEarned }))
   })
 
   router.post('/orders/:id/ship', async (_req, { id }) => {
@@ -67,6 +75,19 @@ export function orderRoutes(router: Router, { db, now }: Context): void {
     if (!order) return fail(404, 'Order not found')
     if (order.status !== 'paid') return fail(409, `A ${order.status} order cannot be shipped`)
     return json(await db.orders.update(order.id, { status: 'shipped' }))
+  })
+
+  router.post('/orders/:id/cancel', async (_req, { id }) => {
+    const order = await db.orders.find(id as string)
+    if (!order) return fail(404, 'Order not found')
+    if (order.status !== 'pending' && order.status !== 'paid')
+      return fail(409, `A ${order.status} order cannot be cancelled`)
+    const customer = await db.customers.find(order.customerId)
+    if (customer) {
+      const points = Math.max(0, (customer.points ?? 0) + order.pointsRedeemed - order.pointsEarned)
+      await db.customers.update(customer.id, { points })
+    }
+    return json(await db.orders.update(order.id, { status: 'cancelled' }))
   })
 
   router.get('/orders/:id/receipt', async (_req, { id }) => {

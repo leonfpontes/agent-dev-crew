@@ -3,7 +3,10 @@ import type { Context } from '../context.js'
 import { fail, json, readJson, type Router } from '../http.js'
 import type { Order, ReturnLine } from '../types.js'
 
-const WINDOW_MS = 30 * 24 * 60 * 60 * 1000
+const DAY_MS = 24 * 60 * 60 * 1000
+const WINDOW_MS = 30 * DAY_MS
+const FEE_FROM_MS = 14 * DAY_MS
+const FEE_PERCENT = 10
 
 const bought = (order: Order, sku: string) =>
   order.lines.filter((l) => l.sku === sku).reduce((sum, l) => sum + l.quantity, 0)
@@ -18,8 +21,8 @@ export function returnRoutes(router: Router, { db, now }: Context): void {
     const order = await db.orders.find(id as string)
     if (!order) return fail(404, 'Order not found')
     if (order.status !== 'shipped') return fail(409, `A ${order.status} order cannot be returned`)
-    if (now().getTime() - Date.parse(order.createdAt) >= WINDOW_MS)
-      return fail(409, 'The return window has closed')
+    const age = now().getTime() - Date.parse(order.createdAt)
+    if (age >= WINDOW_MS) return fail(409, 'The return window has closed')
     const body = (await readJson(req)) as { lines?: unknown } | undefined
     const lines = parseLines(body?.lines)
     if (!lines) return fail(400, 'lines must be a non-empty list of { sku, quantity }')
@@ -33,16 +36,19 @@ export function returnRoutes(router: Router, { db, now }: Context): void {
       (l) =>
         returned(order, l.sku) + (lines.find((r) => r.sku === l.sku)?.quantity ?? 0) >= bought(order, l.sku),
     )
+    const feeCents = age >= FEE_FROM_MS ? Math.round((value * FEE_PERCENT) / 100) : 0
+    const feesSoFar = order.returns.reduce((sum, r) => sum + r.feeCents, 0)
+    // The last return closes the order: refunds plus fees add up to the total.
     const refundCents = everything
-      ? order.totalCents - order.refundedCents
-      : value + Math.round((order.taxCents * value) / order.subtotalCents)
+      ? order.totalCents - order.refundedCents - feesSoFar - feeCents
+      : value + Math.round((order.taxCents * value) / order.subtotalCents) - feeCents
     for (const line of lines) {
       const product = await db.products.find(line.sku)
       if (product) await db.products.update(line.sku, { stock: product.stock + line.quantity })
     }
     const returns = [
       ...order.returns,
-      { id: `ret_${order.returns.length + 1}`, lines, refundCents, at: now().toISOString() },
+      { id: `ret_${order.returns.length + 1}`, lines, refundCents, feeCents, at: now().toISOString() },
     ]
     return json(
       await db.orders.update(order.id, {

@@ -136,4 +136,30 @@ describe('Idempotency-Key on POST /orders and POST /orders/:id/pay', () => {
     expect((await a.get('/orders')).body.items).toEqual([])
     expect((await a.post('/orders', { cartId }, key('Ok_key-64'))).status).toBe(201)
   })
+
+  it('makes a request that arrives while the first with its key is still running wait, then replay', async () => {
+    const a = api()
+    const cartId = await a.cart('cus_ada', [['APL-GALA-1KG', 2]])
+    const [first, second] = await Promise.all([
+      a.post('/orders', { cartId }, key('race')),
+      a.post('/orders', { cartId }, key('race')),
+    ])
+    expect([first.status, second.status]).toEqual([201, 201])
+    expect(second.body).toEqual(first.body)
+    expect([first.headers.get('idempotent-replayed'), second.headers.get('idempotent-replayed')]).toEqual([
+      null,
+      'true',
+    ])
+    expect((await a.get('/orders')).body.items).toHaveLength(1)
+
+    const other = await a.cart('cus_ben', [['BRD-SOUR-800', 1]])
+    const mine = await a.cart('cus_cleo', [['EGG-FREE-12', 1]])
+    const [won, reused] = await Promise.all([
+      a.post('/orders', { cartId: mine }, key('race-2')),
+      a.post('/orders', { cartId: other }, key('race-2')),
+    ])
+    expect(won.status).toBe(201)
+    expect(reused).toMatchObject({ status: 422, body: { error: REUSED } })
+    expect((await a.get('/orders')).body.items).toHaveLength(2)
+  })
 })

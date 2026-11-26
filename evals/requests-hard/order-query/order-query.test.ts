@@ -145,4 +145,17 @@ describe('query the orders', () => {
     })
     expect(await ids(a, '?limit=100&offset=0&customer=cus_cleo')).toEqual([4])
   })
+
+  it("sorts by several keys in order, with status in the order of an order's life, not alphabetically", async () => {
+    const a = await sixOrders()
+    expect(await ids(a, '?sort=status,-total')).toEqual([4, 2, 6, 5, 1, 3])
+    expect(await ids(a, '?sort=-status,createdAt')).toEqual([3, 1, 5, 2, 4, 6])
+    expect(await ids(a, '?sort=total,-createdAt')).toEqual([6, 3, 1, 5, 2, 4])
+    expect(await ids(a, '?sort=status&limit=2&offset=2')).toEqual([6, 1])
+    for (const sort of ['status,status', 'status,-status', '', 'status,price', 'status,,total'])
+      expect(await a.get(`/orders?sort=${sort}`), sort).toMatchObject({
+        status: 400,
+        body: { error: 'Invalid query: sort' },
+      })
+  })
 })

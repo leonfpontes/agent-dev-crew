@@ -37,6 +37,17 @@ export function withIdempotency(
   now: () => Date,
 ): (req: Request) => Promise<Response> {
   const remembered = new Map<string, Remembered>()
+  // Requests with the same key and path run one after the other: a retry that arrives while the
+  // first is still running waits for it, then sees its remembered answer.
+  const running = new Map<string, Promise<unknown>>()
+  const oneAtATime = <T>(id: string, work: () => Promise<T>): Promise<T> => {
+    const run = (running.get(id) ?? Promise.resolve()).then(work)
+    running.set(
+      id,
+      run.catch(() => undefined),
+    )
+    return run
+  }
   return async (req) => {
     const key = req.headers.get('idempotency-key')
     const path = new URL(req.url).pathname
@@ -44,8 +55,12 @@ export function withIdempotency(
     if (!KEY.test(key)) return fail(400, 'Invalid Idempotency-Key')
 
     const text = await req.text()
-    const body = canonical(text)
     const id = `${path} ${key}`
+    return oneAtATime(id, () => answer(req, text, id))
+  }
+
+  async function answer(req: Request, text: string, id: string): Promise<Response> {
+    const body = canonical(text)
     const at = now().getTime()
     const seen = remembered.get(id)
     if (seen && at - seen.at < TTL_MS) {
@@ -58,9 +73,9 @@ export function withIdempotency(
     remembered.delete(id)
     const res = await handle(new Request(req.url, { method: req.method, headers: req.headers, body: text }))
     if (res.status < 200 || res.status > 299) return res
-    const answer = await res.text()
+    const saved = await res.text()
     const contentType = res.headers.get('content-type') ?? 'application/json; charset=utf-8'
-    remembered.set(id, { body, status: res.status, answer, contentType, at })
-    return new Response(answer, { status: res.status, headers: res.headers })
+    remembered.set(id, { body, status: res.status, answer: saved, contentType, at })
+    return new Response(saved, { status: res.status, headers: res.headers })
   }
 }

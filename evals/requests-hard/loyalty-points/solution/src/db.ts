@@ -36,7 +36,9 @@ export interface DbSeed {
 
 export function createDb(seed: DbSeed = {}): Db {
   const products = new Map((seed.products ?? PRODUCTS).map((p) => [p.sku, copy(p)]))
-  const customers = new Map((seed.customers ?? CUSTOMERS).map((c) => [c.id, { points: 0, ...copy(c) }]))
+  const customers = new Map(
+    (seed.customers ?? CUSTOMERS).map((c) => [c.id, { points: 0, lifetimePoints: 0, ...copy(c) }]),
+  )
   const carts = new Map<string, Cart>()
   const orders = new Map((seed.orders ?? []).map((o) => [o.id, copy(o)]))
   let nextCart = 1

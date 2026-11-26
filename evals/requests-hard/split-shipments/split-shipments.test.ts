@@ -200,4 +200,20 @@ describe('ship an order in parts', () => {
       body: { error: 'A partially_shipped order cannot be paid' },
     })
   })
+
+  it('never ships more than ordered when shipments for the same order arrive at the same time', async () => {
+    const { a, id } = await paidOrder()
+    const ship = (sku: string, quantity: number) =>
+      a.post(`/orders/${id}/shipments`, { lines: [{ sku, quantity }] })
+    const raced = await Promise.all([ship(APL, 2), ship(APL, 2), ship(BRD, 1)])
+    expect(raced.map((r) => r.status)).toEqual([201, 422, 201])
+    expect(raced[1]!.body).toEqual({ error: 'Cannot ship 2 of APL-GALA-1KG' })
+    const order = (await a.get(`/orders/${id}`)).body
+    expect(order.shipped).toEqual({ [APL]: 2, [BRD]: 1 })
+    expect(order.shipments.map((s: { id: string }) => s.id)).toEqual(['shp_1', 'shp_2'])
+
+    const [rest, late] = await Promise.all([a.post(`/orders/${id}/ship`), ship(APL, 1)])
+    expect(rest.body).toMatchObject({ status: 'shipped', shipped: { [APL]: 3, [BRD]: 2 } })
+    expect(late).toMatchObject({ status: 409, body: { error: 'A shipped order cannot be shipped' } })
+  })
 })

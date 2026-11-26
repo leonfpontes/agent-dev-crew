@@ -60,7 +60,14 @@ describe('loyalty points', () => {
     const a = api()
     expect(await a.get('/customers/cus_ada')).toMatchObject({
       status: 200,
-      body: { id: 'cus_ada', name: 'Ada Brightwater', email: 'ada@example.com', points: 0 },
+      body: {
+        id: 'cus_ada',
+        name: 'Ada Brightwater',
+        email: 'ada@example.com',
+        points: 0,
+        lifetimePoints: 0,
+        tier: 'standard',
+      },
     })
     expect(await a.get('/customers/cus_nobody')).toMatchObject({
       status: 404,
@@ -141,5 +148,56 @@ describe('loyalty points', () => {
     const s = lines.indexOf('Subtotal  $9.00')
     expect(s).toBeGreaterThan(0)
     expect(lines.slice(s, s + 4)).toEqual(['Subtotal  $9.00', 'Points  -$1.00', 'Tax  $0.64', 'Total  $8.64'])
+  })
+
+  it('gives redeemed points back on cancel and takes back what a paid order earned, never below 0', async () => {
+    const a = api()
+    const earner = await a.order('cus_ada', [['COF-BEAN-500', 10]])
+    await a.post(`/orders/${earner.body.id}/pay`)
+    expect((await a.get(`/orders/${earner.body.id}`)).body.pointsEarned).toBe(149)
+    const redeemer = await a.order('cus_ada', [['APL-GALA-1KG', 2]], { redeemPoints: 100 })
+    expect(redeemer.body.pointsEarned).toBe(0)
+    expect(await pointsOf(a)).toBe(49)
+    expect(await a.post(`/orders/${earner.body.id}/cancel`)).toMatchObject({
+      status: 200,
+      body: { id: earner.body.id, status: 'cancelled' },
+    })
+    expect(await pointsOf(a)).toBe(0)
+    expect((await a.post(`/orders/${redeemer.body.id}/cancel`)).body.status).toBe('cancelled')
+    expect(await pointsOf(a)).toBe(100)
+    expect(await a.post(`/orders/${redeemer.body.id}/cancel`)).toMatchObject({
+      status: 409,
+      body: { error: 'A cancelled order cannot be cancelled' },
+    })
+    const shipped = await a.order('cus_ben', [['MLK-OAT-1L', 1]])
+    await a.post(`/orders/${shipped.body.id}/pay`)
+    await a.post(`/orders/${shipped.body.id}/ship`)
+    expect(await a.post(`/orders/${shipped.body.id}/cancel`)).toMatchObject({
+      status: 409,
+      body: { error: 'A shipped order cannot be cancelled' },
+    })
+    expect(await a.post('/orders/ord_9999/cancel')).toMatchObject({
+      status: 404,
+      body: { error: 'Order not found' },
+    })
+  })
+
+  it('makes a customer gold from 500 lifetime points: 2 points per dollar from the next payment on', async () => {
+    const a = api()
+    await earn(a, 34) // $509.66: 509 points at the standard rate, even though it crosses 500
+    expect((await a.get('/customers/cus_ada')).body).toMatchObject({
+      points: 509,
+      lifetimePoints: 509,
+      tier: 'gold',
+    })
+    await a.order('cus_ada', [['APL-GALA-1KG', 1]], { redeemPoints: 400 }) // lifetime unchanged
+    expect((await a.get('/customers/cus_ada')).body).toMatchObject({
+      points: 109,
+      lifetimePoints: 509,
+      tier: 'gold',
+    })
+    await earn(a, 1) // $14.99: 28 points as gold
+    expect((await a.get('/customers/cus_ada')).body).toMatchObject({ points: 137, lifetimePoints: 537 })
+    expect((await a.get('/customers/cus_ben')).body.tier).toBe('standard')
   })
 })

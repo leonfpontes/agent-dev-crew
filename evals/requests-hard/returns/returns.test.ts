@@ -82,12 +82,18 @@ describe('returns', () => {
       status: 'shipped',
       refundedCents: 562,
       returns: [
-        { id: 'ret_1', lines: [{ sku: TOM, quantity: 1 }], refundCents: 562, at: '2026-11-20T11:00:00.000Z' },
+        {
+          id: 'ret_1',
+          lines: [{ sku: TOM, quantity: 1 }],
+          refundCents: 562,
+          feeCents: 0,
+          at: '2026-11-20T11:00:00.000Z',
+        },
       ],
     })
   })
 
-  it('makes the last return refund what is left, so the refunds add up to the total, and marks the order returned', async () => {
+  it('makes the last return refund what is left, so the refunds add up to the total without fees, and marks the order returned', async () => {
     const { a, id } = await shippedOrder()
     const refunds: number[] = []
     for (const lines of [[[TOM, 1]], [[APL, 2]], [[TOM, 1]], [[TOM, 1]]] as [string, number][][]) {
@@ -181,5 +187,37 @@ describe('returns', () => {
     expect(order.returns).toHaveLength(1)
     expect((await a.app.db.products.find(TOM))?.stock).toBe(22)
     expect((await a.app.db.products.find('EGG-FREE-12'))?.stock).toBe(30)
+  })
+
+  it('keeps a 10% restocking fee from 14 days on, and the last return refunds what is left minus its fee', async () => {
+    const { a, id } = await shippedOrder()
+    a.tick(14 * DAY)
+    const steps: [number, number][] = []
+    for (const lines of [[[TOM, 1]], [[APL, 2]], [[TOM, 2]]] as [string, number][][]) {
+      const res = await giveBack(a, id, lines)
+      expect(res.status).toBe(201)
+      const last = res.body.returns.at(-1)
+      steps.push([last.refundCents, last.feeCents])
+    }
+    expect(steps).toEqual([
+      [510, 52],
+      [882, 90],
+      [1019, 104],
+    ])
+    expect((await a.get(`/orders/${id}`)).body).toMatchObject({ status: 'returned', refundedCents: 2411 })
+  })
+
+  it('charges no fee until exactly 14 days after the order', async () => {
+    const { a, id } = await shippedOrder()
+    a.tick(14 * DAY - 1)
+    expect((await giveBack(a, id, [[TOM, 1]])).body.returns[0]).toMatchObject({
+      refundCents: 562,
+      feeCents: 0,
+    })
+    a.tick(1)
+    expect((await giveBack(a, id, [[TOM, 1]])).body.returns[1]).toMatchObject({
+      refundCents: 510,
+      feeCents: 52,
+    })
   })
 })

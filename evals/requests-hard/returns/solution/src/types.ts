@@ -39,6 +39,8 @@ export interface ReturnRecord {
   id: string
   lines: ReturnLine[]
   refundCents: number
+  /** The restocking fee kept: 10% of the returned value from 14 days after the order, else 0. */
+  feeCents: number
   at: string
 }
 

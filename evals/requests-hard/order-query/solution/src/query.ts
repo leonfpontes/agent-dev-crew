@@ -8,13 +8,26 @@ export interface OrderQuery {
   from?: string
   to?: string
   minTotal?: number
-  sort: string
+  /** Sort keys in order, each with its direction. */
+  sort: { key: SortKey; direction: 1 | -1 }[]
   limit: number
   offset: number
 }
 
 const KNOWN = ['status', 'customer', 'from', 'to', 'minTotal', 'sort', 'limit', 'offset']
-const SORTS = ['createdAt', '-createdAt', 'total', '-total']
+const SORT_KEYS = ['createdAt', 'total', 'status'] as const
+type SortKey = (typeof SORT_KEYS)[number]
+
+/** A comma-separated list of distinct keys, each optionally with a leading "-". */
+function parseSort(value: string): OrderQuery['sort'] | undefined {
+  const sort: OrderQuery['sort'] = []
+  for (const part of value.split(',')) {
+    const key = part.replace(/^-/, '') as SortKey
+    if (!SORT_KEYS.includes(key) || sort.some((s) => s.key === key)) return undefined
+    sort.push({ key, direction: part.startsWith('-') ? -1 : 1 })
+  }
+  return sort
+}
 
 const isDate = (value: string) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
@@ -35,8 +48,8 @@ export function parseOrderQuery(params: URLSearchParams): OrderQuery | { invalid
   if (to !== undefined && (!isDate(to) || (from !== undefined && to < from))) return { invalid: 'to' }
   const minTotal = get('minTotal')
   if (minTotal !== undefined && !wholeAtLeast(minTotal, 0)) return { invalid: 'minTotal' }
-  const sort = get('sort') ?? 'createdAt'
-  if (!SORTS.includes(sort)) return { invalid: 'sort' }
+  const sort = parseSort(get('sort') ?? 'createdAt')
+  if (!sort) return { invalid: 'sort' }
   const limit = get('limit') ?? '20'
   if (!wholeAtLeast(limit, 1) || Number(limit) > 100) return { invalid: 'limit' }
   const offset = get('offset') ?? '0'
@@ -64,11 +77,18 @@ export function queryOrders(orders: Order[], q: OrderQuery) {
       (q.to === undefined || o.createdAt.slice(0, 10) <= q.to) &&
       (q.minTotal === undefined || o.totalCents >= q.minTotal),
   )
-  const direction = q.sort.startsWith('-') ? -1 : 1
-  const field = q.sort.replace('-', '')
+  const compare = (key: SortKey, a: Order, b: Order) =>
+    key === 'total'
+      ? a.totalCents - b.totalCents
+      : key === 'status'
+        ? ORDER_STATUSES.indexOf(a.status) - ORDER_STATUSES.indexOf(b.status)
+        : a.createdAt.localeCompare(b.createdAt)
   matching.sort((a, b) => {
-    const by = field === 'total' ? a.totalCents - b.totalCents : a.createdAt.localeCompare(b.createdAt)
-    return by * direction || a.id.localeCompare(b.id)
+    for (const { key, direction } of q.sort) {
+      const by = compare(key, a, b) * direction
+      if (by !== 0) return by
+    }
+    return a.id.localeCompare(b.id)
   })
   return {
     items: matching.slice(q.offset, q.offset + q.limit),

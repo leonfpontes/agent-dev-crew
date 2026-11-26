@@ -100,18 +100,18 @@ describe('evals/requests-hard', () => {
   const { requests, problems } = loadRequestSet(evalsDir, exampleDir, 'hard')
   const easy = loadRequests(requestsDir, exampleDir).requests
 
-  it('has 10 hard requests with 6 hidden tests each, a reference solution, and ids the easy set does not use', () => {
+  it('has 10 hard requests with 74 hidden tests, a reference solution each, and ids the easy set does not use', () => {
     expect(problems).toEqual([])
     expect(requests.map((r) => [r.id, r.hiddenTestCount])).toEqual([
-      ['stock-reservations', 6],
-      ['promotions', 6],
-      ['store-timezone-reports', 6],
-      ['split-shipments', 6],
-      ['loyalty-points', 6],
-      ['idempotency-keys', 6],
-      ['returns', 6],
-      ['price-changes', 6],
-      ['order-query', 6],
+      ['stock-reservations', 7],
+      ['promotions', 8],
+      ['store-timezone-reports', 8],
+      ['split-shipments', 7],
+      ['loyalty-points', 8],
+      ['idempotency-keys', 7],
+      ['returns', 8],
+      ['price-changes', 8],
+      ['order-query', 7],
       ['gift-cards', 6],
     ])
     const easyIds = new Set(easy.map((r) => r.id))

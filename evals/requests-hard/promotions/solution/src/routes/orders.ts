@@ -2,10 +2,13 @@
 import type { Context } from '../context.js'
 import { fail, json, readJson, type Router } from '../http.js'
 import { formatCents, totalsOf } from '../money.js'
-import { promotionsFor } from '../promotions.js'
+import { BIG_BASKET, promotionsFor, storeDayOf } from '../promotions.js'
 import type { Order } from '../types.js'
 
 export function orderRoutes(router: Router, { db, now }: Context): void {
+  // Customer and New York day of every Big basket given: at most one per customer per day.
+  const bigBaskets = new Set<string>()
+
   router.get('/orders', async () => {
     const orders = await db.orders.list()
     return json({
@@ -24,7 +27,9 @@ export function orderRoutes(router: Router, { db, now }: Context): void {
     const cart = await db.carts.find(body.cartId)
     if (!cart) return fail(404, 'Cart not found')
     if (cart.lines.length === 0) return fail(422, 'The cart is empty')
-    const promotions = promotionsFor(cart.lines)
+    const basketKey = `${cart.customerId} ${storeDayOf(now())}`
+    const promotions = promotionsFor(cart.lines, !bigBaskets.has(basketKey))
+    if (promotions.some((p) => p.name === BIG_BASKET.name)) bigBaskets.add(basketKey)
     const discountCents = promotions.reduce((sum, p) => sum + p.discountCents, 0)
     const order = await db.orders.insert({
       customerId: cart.customerId,

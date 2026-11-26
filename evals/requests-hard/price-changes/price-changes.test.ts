@@ -143,4 +143,54 @@ describe('price changes', () => {
       body: { error: 'Product not found' },
     })
   })
+
+  it('schedules a price with a future from: carts and new orders switch at that time on their own', async () => {
+    const a = api()
+    expect(
+      await a.post(`/products/${APL}/price`, { unitCents: 500, from: '2026-11-21T00:00:00Z' }),
+    ).toMatchObject({
+      status: 200,
+      body: { sku: APL, unitCents: 450 },
+    })
+    const cartId = await a.cart('cus_ada', [[APL, 1]])
+    expect((await a.get(`/carts/${cartId}`)).body.lines[0]).toMatchObject({ unitCents: 450, lineCents: 450 })
+    a.at('2026-11-20T23:59:59Z')
+    expect((await a.order('cus_ben', [[APL, 1]])).body.subtotalCents).toBe(450)
+    a.at('2026-11-21T00:00:00Z')
+    expect((await a.get(`/carts/${cartId}`)).body.lines[0]).toMatchObject({ unitCents: 500, lineCents: 500 })
+    expect((await a.post('/orders', { cartId })).body.subtotalCents).toBe(500)
+    expect((await a.get(`/products/${APL}/prices`)).body.history).toEqual([
+      { unitCents: 450, from: null },
+      { unitCents: 500, from: '2026-11-21T00:00:00.000Z' },
+    ])
+  })
+
+  it('orders the history by from, replaces a schedule with the same from, starts a past from now, and refuses a bad from', async () => {
+    const a = api()
+    const schedule = (unitCents: number, from: string) =>
+      a.post(`/products/${APL}/price`, { unitCents, from })
+    await schedule(520, '2026-11-22T00:00:00Z')
+    await schedule(480, '2026-11-21T00:00:00Z')
+    await schedule(490, '2026-11-21T00:00:00.000Z')
+    expect((await a.get(`/products/${APL}/prices`)).body.history).toEqual([
+      { unitCents: 450, from: null },
+      { unitCents: 490, from: '2026-11-21T00:00:00.000Z' },
+      { unitCents: 520, from: '2026-11-22T00:00:00.000Z' },
+    ])
+    const cartId = await a.cart('cus_ada', [[APL, 2]])
+    a.at('2026-11-21T12:00:00Z')
+    expect((await a.get(`/carts/${cartId}`)).body.lines[0].lineCents).toBe(980)
+    a.at('2026-11-22T08:00:00Z')
+    expect((await a.get(`/carts/${cartId}`)).body.lines[0].lineCents).toBe(1040)
+
+    expect((await schedule(530, '2026-11-01T00:00:00Z')).body.unitCents).toBe(530)
+    expect((await a.get(`/products/${APL}/prices`)).body.history.at(-1)).toEqual({
+      unitCents: 530,
+      from: '2026-11-22T08:00:00.000Z',
+    })
+    expect(await schedule(540, 'tomorrow')).toMatchObject({
+      status: 400,
+      body: { error: 'from must be an ISO 8601 time' },
+    })
+  })
 })

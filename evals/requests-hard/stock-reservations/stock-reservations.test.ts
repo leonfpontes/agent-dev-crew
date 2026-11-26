@@ -180,4 +180,20 @@ describe('reserve stock when orders are placed and cancelled', () => {
     expect(kept.body.totalCents).toBe(972)
     expect((await a.get('/reports/daily-total?date=2026-11-20')).body.totalCents).toBe(972)
   })
+
+  it('never oversells when orders race for the last units, and returns a raced cancel only once', async () => {
+    const a = api()
+    const carts = []
+    for (const customerId of ['cus_ada', 'cus_ben', 'cus_cleo', 'cus_ada', 'cus_ben'])
+      carts.push(await a.cart(customerId, [['CHS-CHED-200', 2]]))
+    const placed = await Promise.all(carts.map((cartId) => a.post('/orders', { cartId })))
+    expect(placed.map((r) => r.status).sort()).toEqual([201, 201, 201, 201, 409])
+    expect((await stockOf(a))['CHS-CHED-200']).toBe(0)
+    expect((await a.get('/orders')).body.items).toHaveLength(4)
+
+    const id = placed.find((r) => r.status === 201)!.body.id
+    const cancels = await Promise.all([a.post(`/orders/${id}/cancel`), a.post(`/orders/${id}/cancel`)])
+    expect(cancels.map((r) => r.status).sort()).toEqual([200, 409])
+    expect((await stockOf(a))['CHS-CHED-200']).toBe(2)
+  })
 })

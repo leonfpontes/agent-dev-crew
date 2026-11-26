@@ -11,8 +11,10 @@ export interface Customer {
   id: string
   name: string
   email: string
-  /** Loyalty points: 1 per whole dollar paid before tax; 100 points are worth $1.00. */
+  /** Loyalty points: 1 per whole dollar paid before tax (2 for gold); 100 points are worth $1.00. */
   points?: number
+  /** Every point ever earned; redeeming and cancelling never lower it. Gold from 500. */
+  lifetimePoints?: number
 }
 
 export interface Line {
@@ -29,7 +31,7 @@ export interface Cart {
   lines: Line[]
 }
 
-export const ORDER_STATUSES = ['pending', 'paid', 'shipped'] as const
+export const ORDER_STATUSES = ['pending', 'paid', 'shipped', 'cancelled'] as const
 export type OrderStatus = (typeof ORDER_STATUSES)[number]
 
 export interface Order {
@@ -38,6 +40,7 @@ export interface Order {
   lines: Line[]
   subtotalCents: number
   pointsRedeemed: number
+  pointsEarned: number
   discountCents: number
   taxCents: number
   totalCents: number

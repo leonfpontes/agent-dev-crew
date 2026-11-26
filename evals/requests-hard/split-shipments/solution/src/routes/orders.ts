@@ -2,6 +2,7 @@
 import type { Context } from '../context.js'
 import { fail, json, readJson, type Router } from '../http.js'
 import { formatCents, totalsOf } from '../money.js'
+import { serial } from '../serial.js'
 import type { Order, ShipmentLine } from '../types.js'
 
 export function orderRoutes(router: Router, { db, now }: Context): void {
@@ -59,19 +60,25 @@ export function orderRoutes(router: Router, { db, now }: Context): void {
   }
 
   const shippable = (order: Order) => order.status === 'paid' || order.status === 'partially_shipped'
+  // Shipments read what is left and then write it: one at a time, in the order they arrive.
+  const exclusive = serial()
 
-  router.post('/orders/:id/ship', async (_req, { id }) => {
-    const order = await db.orders.find(id as string)
+  router.post('/orders/:id/ship', (_req, { id }) => exclusive(() => shipRest(id as string)))
+
+  const shipRest = async (id: string) => {
+    const order = await db.orders.find(id)
     if (!order) return fail(404, 'Order not found')
     if (!shippable(order)) return fail(409, `A ${order.status} order cannot be shipped`)
     const lines = order.lines
       .map((l) => ({ sku: l.sku, quantity: left(order, l.sku) }))
       .filter((l) => l.quantity > 0)
     return json(await record(order, lines))
-  })
+  }
 
-  router.post('/orders/:id/shipments', async (req, { id }) => {
-    const order = await db.orders.find(id as string)
+  router.post('/orders/:id/shipments', (req, { id }) => exclusive(() => ship(req, id as string)))
+
+  const ship = async (req: Request, id: string) => {
+    const order = await db.orders.find(id)
     if (!order) return fail(404, 'Order not found')
     if (!shippable(order)) return fail(409, `A ${order.status} order cannot be shipped`)
     const body = (await readJson(req)) as { lines?: unknown } | undefined
@@ -81,7 +88,7 @@ export function orderRoutes(router: Router, { db, now }: Context): void {
       if (line.quantity > left(order, line.sku))
         return fail(422, `Cannot ship ${line.quantity} of ${line.sku}`)
     return json(await record(order, lines), 201)
-  })
+  }
 
   router.get('/orders/:id/receipt', async (_req, { id }) => {
     const order = await db.orders.find(id as string)

@@ -2,9 +2,13 @@
 import type { Context } from '../context.js'
 import { fail, json, readJson, type Router } from '../http.js'
 import { formatCents, totalsOf } from '../money.js'
+import { serial } from '../serial.js'
 import type { Order } from '../types.js'
 
 export function orderRoutes(router: Router, { db, now }: Context): void {
+  // Placing and cancelling read and write stock: one at a time, so racing requests can't oversell.
+  const exclusive = serial()
+
   router.get('/orders', async () => {
     const orders = await db.orders.list()
     return json({
@@ -17,7 +21,9 @@ export function orderRoutes(router: Router, { db, now }: Context): void {
     return order ? json(order) : fail(404, 'Order not found')
   })
 
-  router.post('/orders', async (req) => {
+  router.post('/orders', (req) => exclusive(() => placeOrder(req)))
+
+  const placeOrder = async (req: Request) => {
     const body = (await readJson(req)) as { cartId?: unknown } | undefined
     if (typeof body?.cartId !== 'string') return fail(400, 'cartId is required')
     const cart = await db.carts.find(body.cartId)
@@ -42,7 +48,7 @@ export function orderRoutes(router: Router, { db, now }: Context): void {
     })
     await db.carts.update(cart.id, { lines: [] })
     return json(order, 201)
-  })
+  }
 
   router.post('/orders/:id/pay', async (_req, { id }) => {
     const order = await db.orders.find(id as string)
@@ -58,8 +64,10 @@ export function orderRoutes(router: Router, { db, now }: Context): void {
     return json(await db.orders.update(order.id, { status: 'shipped' }))
   })
 
-  router.post('/orders/:id/cancel', async (_req, { id }) => {
-    const order = await db.orders.find(id as string)
+  router.post('/orders/:id/cancel', (_req, { id }) => exclusive(() => cancelOrder(id as string)))
+
+  const cancelOrder = async (id: string) => {
+    const order = await db.orders.find(id)
     if (!order) return fail(404, 'Order not found')
     if (order.status !== 'pending' && order.status !== 'paid')
       return fail(409, `A ${order.status} order cannot be cancelled`)
@@ -68,7 +76,7 @@ export function orderRoutes(router: Router, { db, now }: Context): void {
       if (product) await db.products.update(line.sku, { stock: product.stock + line.quantity })
     }
     return json(await db.orders.update(order.id, { status: 'cancelled' }))
-  })
+  }
 
   router.get('/orders/:id/receipt', async (_req, { id }) => {
     const order = await db.orders.find(id as string)

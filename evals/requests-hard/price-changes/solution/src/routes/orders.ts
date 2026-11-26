@@ -24,7 +24,7 @@ export function orderRoutes(router: Router, { db, now }: Context): void {
     const cart = await db.carts.find(body.cartId)
     if (!cart) return fail(404, 'Cart not found')
     if (cart.lines.length === 0) return fail(422, 'The cart is empty')
-    const lines = await priced(db, cart.lines)
+    const lines = await priced(db, cart.lines, now())
     const order = await db.orders.insert({
       customerId: cart.customerId,
       lines,
