@@ -120,6 +120,12 @@ README cover), with the numbers they show in `docs/share.values.json`. A test fa
 numbers differ from the scoreboard or the replay run. `og:image` needs an absolute URL: the build
 reads `SITE_URL`, or Vercel's production domain.
 
+Demo media: `pnpm record-demo` builds, serves the app and records `/demo` frame by frame into
+`docs/media/crew-demo.gif` (20 s) and `crew-demo.mp4` (60 s, captions in the picture and in
+`crew-demo.en.vtt`), with the captions it drew in `crew-demo.numbers.json`; a test compares them with
+the scoreboard and the replay run. The README's scoreboard block comes from `evals/results/*.json`
+(`pnpm readme`), with a test that fails when it falls behind.
+
 `?theme=dark` or `?theme=light` (also `?dark`) sets the theme for links and captures; otherwise the
 saved choice, then the system. `pnpm dev` serves the app on 127.0.0.1:5173 and sends `/api` to
 `CREW_API` (default `http://127.0.0.1:8787`, the API of `pnpm crew serve`). The app's tests call the

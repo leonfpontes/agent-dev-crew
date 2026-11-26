@@ -1,0 +1,66 @@
+{
+  "video": [
+    {
+      "from": 0,
+      "to": 5000,
+      "text": "Coding agents write code. Who checks the plan, the cost and the tests?"
+    },
+    {
+      "from": 5000,
+      "to": 10000,
+      "text": "Agent Dev Crew runs a team of agents and keeps a trace of every step."
+    },
+    {
+      "from": 10000,
+      "to": 18000,
+      "text": "You approve the plan, or ask for changes, before any code."
+    },
+    {
+      "from": 18000,
+      "to": 30000,
+      "text": "Every step shows its prompt, tools, tokens, cost and time."
+    },
+    {
+      "from": 30000,
+      "to": 40000,
+      "text": "Hidden tests, never shown to the agents, decide if it passed."
+    },
+    {
+      "from": 40000,
+      "to": 50000,
+      "text": "A run can propose a rule. It joins the playbook only if you approve."
+    },
+    {
+      "from": 50000,
+      "to": 60000,
+      "text": "Passing: one agent 100%, crew 100%. The crew costs 3.1× as much."
+    }
+  ],
+  "gif": [
+    {
+      "from": 0,
+      "to": 3000,
+      "text": "One feature request in."
+    },
+    {
+      "from": 3000,
+      "to": 6000,
+      "text": "You approve the plan. Nothing runs before that."
+    },
+    {
+      "from": 6000,
+      "to": 11000,
+      "text": "Engineer, Reviewer and QA. QA sends it back once."
+    },
+    {
+      "from": 11000,
+      "to": 15000,
+      "text": "A tested diff: 6 of 6 hidden tests pass."
+    },
+    {
+      "from": 15000,
+      "to": 20000,
+      "text": "The run teaches the next one, if you approve it."
+    }
+  ]
+}

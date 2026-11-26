@@ -21,13 +21,16 @@
     "crew": "pnpm -s --filter @crew/api... build && node packages/api/dist/cli.js",
     "demo": "pnpm build && node packages/api/dist/cli.js serve",
     "eval": "pnpm --filter \"@crew/evals...\" build && node evals/dist/eval-cli.js",
-    "share-images": "pnpm build && node apps/web/scripts/share-images.mjs"
+    "share-images": "pnpm build && node apps/web/scripts/share-images.mjs",
+    "record-demo": "pnpm build && node apps/web/scripts/record-demo.mjs",
+    "readme": "UPDATE_README=1 vitest run --project repo tests/readme.test.ts"
   },
   "license": "MIT",
   "devDependencies": {
     "@crew/api": "workspace:*",
     "@crew/core": "workspace:*",
     "@crew/engine": "workspace:*",
+    "@crew/evals": "workspace:*",
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.65.1",
     "@types/node": "^22.20.7",

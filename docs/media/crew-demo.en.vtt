@@ -1,0 +1,29 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:05.000
+Coding agents write code. Who checks the plan, the cost and the tests?
+
+2
+00:00:05.000 --> 00:00:10.000
+Agent Dev Crew runs a team of agents and keeps a trace of every step.
+
+3
+00:00:10.000 --> 00:00:18.000
+You approve the plan, or ask for changes, before any code.
+
+4
+00:00:18.000 --> 00:00:30.000
+Every step shows its prompt, tools, tokens, cost and time.
+
+5
+00:00:30.000 --> 00:00:40.000
+Hidden tests, never shown to the agents, decide if it passed.
+
+6
+00:00:40.000 --> 00:00:50.000
+A run can propose a rule. It joins the playbook only if you approve.
+
+7
+00:00:50.000 --> 00:01:00.000
+Passing: one agent 100%, crew 100%. The crew costs 3.1× as much.

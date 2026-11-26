@@ -1,7 +1,7 @@
 // The share images can't fall behind their sources: docs/share.values.json (written with the
 // images by pnpm share-images) must equal what the scoreboard and the replay run say today.
 // A failure means: run pnpm share-images and commit the images with the values.
-import { cleanup, screen } from '@testing-library/react'
+import { cleanup, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import values from '@repo/docs/share.values.json'
@@ -45,6 +45,6 @@ describe('share images', () => {
       (await screen.findAllByRole('img', { name: /^Agent Dev Crew\. A crew of AI agents/ })).length,
     ).toBe(4)
     expect(document.querySelectorAll('[id^="art-"]')).toHaveLength(4)
-    expect(window.__shareValues?.run.id).toBe(SHOWCASE_RUN)
+    await waitFor(() => expect(window.__shareValues?.run.id).toBe(SHOWCASE_RUN))
   })
 })

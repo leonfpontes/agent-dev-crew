@@ -25,6 +25,7 @@ export function navigate(to: string, { replace = false }: { replace?: boolean } 
 export type Route =
   | { name: 'how' }
   | { name: 'share' }
+  | { name: 'demo' }
   | { name: 'runs' }
   | { name: 'run'; id: number }
   | { name: 'playbook' }
@@ -35,6 +36,7 @@ export function matchRoute(pathname: string): Route {
   const path = pathname.replace(/\/+$/, '') || '/'
   if (path === '/') return { name: 'how' }
   if (path === '/share') return { name: 'share' }
+  if (path === '/demo') return { name: 'demo' }
   if (path === '/runs') return { name: 'runs' }
   const run = /^\/runs\/(\d+)$/.exec(path)
   if (run) return { name: 'run', id: Number(run[1]) }

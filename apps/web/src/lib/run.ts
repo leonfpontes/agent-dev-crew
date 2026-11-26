@@ -97,7 +97,8 @@ export function spans(steps: StepRow[], total: number, timeline?: Timeline): Map
 export type BarKind = 'p' | 'f' | 'g' | 'l' | 'r' | 'run'
 
 export function barKind(s: StepRow, status = s.status): BarKind | null {
-  if (s.kind === 'gate') return status === 'queued' || status === 'skipped' ? null : 'g'
+  if (status === 'queued' || status === 'skipped') return null
+  if (s.kind === 'gate') return 'g'
   if (s.kind === 'fix-loop') return 'l'
   if (status === 'running') return 'run'
   if (s.kind === 'retro' && status === 'passed') return 'r'

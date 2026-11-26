@@ -7,6 +7,7 @@ import { useApi } from './lib/api'
 import { useTheme } from './lib/hooks'
 import { useLocation } from './lib/router'
 import type { Meta } from './lib/types'
+import { DemoPage } from './pages/Demo'
 import { EvaluationPage } from './pages/Evaluation'
 import { HowItWorksPage } from './pages/HowItWorks'
 import { NotFoundPage } from './pages/NotFound'
@@ -23,6 +24,7 @@ export function App() {
   // The public page, the share images and the 404 have no app shell.
   if (route.name === 'how') return <HowItWorksPage theme={theme} onToggleTheme={toggle} />
   if (route.name === 'share') return <SharePage />
+  if (route.name === 'demo') return <DemoPage />
   if (route.name === 'not-found') return <NotFoundPage path={pathname} />
 
   let page
