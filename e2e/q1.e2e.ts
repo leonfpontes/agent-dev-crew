@@ -269,6 +269,8 @@ test.describe('links', () => {
   })
 
   test('every link inside the app opens a page that exists (no 404 heading)', async ({ page }) => {
+    // About 30 pages: load each one and wait for its heading, not for network idle (the replay polls).
+    test.setTimeout(90_000)
     const hrefs = new Set<string>()
     for (const path of ['/', '/runs', '/runs/142', '/playbook', '/evaluation', '/no-such-page']) {
       await page.goto(path, { waitUntil: 'networkidle' })
@@ -284,7 +286,8 @@ test.describe('links', () => {
         if (!r.ok()) missing.push(`${href}: ${r.status()}`)
         continue
       }
-      await page.goto(href, { waitUntil: 'networkidle' })
+      await page.goto(href, { waitUntil: 'load' })
+      await expect(page.locator('h1, [role="alert"]').first()).toBeVisible()
       if (await page.getByRole('heading', { name: 'This page is not in the trace' }).count())
         missing.push(href)
     }
