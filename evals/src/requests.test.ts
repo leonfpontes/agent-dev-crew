@@ -5,7 +5,14 @@ import { fileURLToPath } from 'node:url'
 import { SEED_REQUESTS } from '@crew/trace'
 import { describe, expect, it } from 'vitest'
 
-import { countTests, loadRequests } from './requests.js'
+import {
+  countTests,
+  isRequestSet,
+  loadRequests,
+  REQUEST_SET_RULES,
+  REQUEST_SETS,
+  requestSetDir,
+} from './requests.js'
 import { formatValidation, validateRequests } from './validate.js'
 
 const evalsDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -83,6 +90,48 @@ describe('evals/requests', () => {
       'too-few: unexpected file notes.md',
       'no-folder: folder is missing',
       'stray: folder has no entry in requests.json',
+    ])
+    rmSync(dir, { recursive: true, force: true })
+  })
+})
+
+describe('request sets', () => {
+  it('has the easy baseline in evals/requests and the hard set in evals/requests-hard', () => {
+    expect(REQUEST_SETS).toEqual(['easy', 'hard'])
+    expect(requestSetDir(evalsDir, 'easy')).toBe(requestsDir)
+    expect(requestSetDir(evalsDir, 'hard')).toBe(path.join(evalsDir, 'requests-hard'))
+    expect([isRequestSet('hard'), isRequestSet('medium')]).toEqual([true, false])
+  })
+
+  it('applies the hard rules: 4 to 8 hidden tests, and a solution may add a file under src/', () => {
+    const dir = path.join(evalsDir, '../.crew/hard-rules')
+    rmSync(dir, { recursive: true, force: true })
+    const write = (file: string, text: string) => {
+      mkdirSync(path.dirname(path.join(dir, file)), { recursive: true })
+      writeFileSync(path.join(dir, file), text)
+    }
+    const cases = (n: number) => Array.from({ length: n }, (_, i) => `it('case ${i}', () => {})`).join('\n')
+    write('eight/eight.test.ts', cases(8))
+    write('eight/solution/src/routes/new-route.ts', '')
+    write('three/three.test.ts', cases(3))
+    write('three/solution/src/money.ts', '')
+    write(
+      'requests.json',
+      JSON.stringify(
+        ['eight', 'three'].map((id) => ({
+          id,
+          title: `Title ${id}`,
+          request: 'A request long enough.',
+          hiddenTests: [`${id}.test.ts`],
+        })),
+      ),
+    )
+    expect(loadRequests(dir, exampleDir, REQUEST_SET_RULES.hard).problems).toEqual([
+      'three: 3 hidden tests, expected 4 to 8',
+    ])
+    expect(loadRequests(dir, exampleDir).problems).toEqual([
+      'eight: 8 hidden tests, expected 3 to 7',
+      'eight: solution file src/routes/new-route.ts does not exist in the example',
     ])
     rmSync(dir, { recursive: true, force: true })
   })

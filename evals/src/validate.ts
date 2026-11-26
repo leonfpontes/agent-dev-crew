@@ -1,13 +1,13 @@
 // Proves each request is a fair test: its hidden tests fail on the example as it ships (the work is
 // not done yet) and all pass on the reference solution, which also keeps every visible test green
-// and type-checks. One Vitest run and one tsc run cover the ten requests.
+// and type-checks. One Vitest run and one tsc run cover a whole set of requests.
 
 import { spawnSync } from 'node:child_process'
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 
-import { loadRequests, type LoadedRequest } from './requests.js'
+import { loadRequests, type LoadedRequest, type RequestSetRules } from './requests.js'
 
 export interface RequestResult {
   id: string
@@ -34,6 +34,8 @@ export interface ValidateOptions {
   exampleDir: string
   /** A scratch folder inside the repository (so `vitest` resolves); it is emptied first. */
   workDir: string
+  /** The set's rules (test counts, new files); the easy set's by default. */
+  rules?: Omit<RequestSetRules, 'folder'>
 }
 
 interface VitestJson {
@@ -87,7 +89,7 @@ function prepare(requests: LoadedRequest[], { requestsDir, exampleDir, workDir }
 }
 
 export function validateRequests(options: ValidateOptions): Validation {
-  const { requests, problems } = loadRequests(options.requestsDir, options.exampleDir)
+  const { requests, problems } = loadRequests(options.requestsDir, options.exampleDir, options.rules)
   if (problems.length > 0) return { results: [], problems, ok: false }
   prepare(requests, options)
 

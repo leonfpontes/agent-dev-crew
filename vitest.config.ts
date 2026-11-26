@@ -32,12 +32,13 @@ export default defineConfig({
       },
       {
         extends: true,
-        // requests/ holds the hidden tests: they run only against a copy of the example (validate.ts)
+        // requests/ and requests-hard/ hold the hidden tests: they run only against a copy of the
+        // example (validate.ts)
         test: {
           name: '@crew/evals',
           root: 'evals',
           environment: 'node',
-          exclude: ['requests/**', '**/node_modules/**'],
+          exclude: ['requests/**', 'requests-hard/**', '**/node_modules/**'],
         },
       },
       'apps/web',
@@ -45,7 +46,14 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['**/src/**'],
-      exclude: ['**/*.test.*', '**/src/test/**', 'apps/web/src/main.tsx', '.crew/**', 'evals/requests/**'],
+      exclude: [
+        '**/*.test.*',
+        '**/src/test/**',
+        'apps/web/src/main.tsx',
+        '.crew/**',
+        'evals/requests/**',
+        'evals/requests-hard/**',
+      ],
       // Floors that only go up: engine and rules 80%, screens 60%.
       thresholds: {
         'packages/**/src/**': { lines: 80, functions: 80, branches: 75 },

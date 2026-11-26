@@ -6,10 +6,17 @@ export {
 } from './contracts.js'
 export {
   countTests,
+  isRequestSet,
   loadRequests,
+  loadRequestSet,
   MAX_HIDDEN_TESTS,
   MIN_HIDDEN_TESTS,
+  REQUEST_SET_RULES,
+  REQUEST_SETS,
+  requestSetDir,
   type LoadedRequest,
+  type RequestSet,
+  type RequestSetRules,
 } from './requests.js'
 export {
   formatValidation,

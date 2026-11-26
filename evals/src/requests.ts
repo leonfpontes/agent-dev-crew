@@ -11,6 +11,47 @@ import { parseRequests, type FeatureRequest } from './contracts.js'
 export const MIN_HIDDEN_TESTS = 3
 export const MAX_HIDDEN_TESTS = 7
 
+/**
+ * The two sets of requests, on the same example. `easy` (evals/requests) is the baseline the first
+ * evaluation ran; `hard` (evals/requests-hard) asks for multi-step changes across files, with subtle
+ * rules, and its solutions may add new files under src/.
+ */
+export const REQUEST_SETS = ['easy', 'hard'] as const
+export type RequestSet = (typeof REQUEST_SETS)[number]
+
+export interface RequestSetRules {
+  /** Folder under evals/. */
+  folder: string
+  minHiddenTests: number
+  maxHiddenTests: number
+  /** Whether a reference solution may add a file the example doesn't have yet. */
+  newFiles: boolean
+}
+
+export const REQUEST_SET_RULES: Record<RequestSet, RequestSetRules> = {
+  easy: {
+    folder: 'requests',
+    minHiddenTests: MIN_HIDDEN_TESTS,
+    maxHiddenTests: MAX_HIDDEN_TESTS,
+    newFiles: false,
+  },
+  hard: { folder: 'requests-hard', minHiddenTests: 4, maxHiddenTests: 8, newFiles: true },
+}
+
+export function isRequestSet(value: string): value is RequestSet {
+  return (REQUEST_SETS as readonly string[]).includes(value)
+}
+
+/** The folder of a set, e.g. `<evalsDir>/requests-hard` for `hard`. */
+export function requestSetDir(evalsDir: string, set: RequestSet): string {
+  return path.join(evalsDir, REQUEST_SET_RULES[set].folder)
+}
+
+/** Loads one set with its own rules (see {@link loadRequests}). */
+export function loadRequestSet(evalsDir: string, exampleDir: string, set: RequestSet) {
+  return loadRequests(requestSetDir(evalsDir, set), exampleDir, REQUEST_SET_RULES[set])
+}
+
 export interface LoadedRequest extends FeatureRequest {
   /** Number of `it(...)` cases across the hidden test files. */
   hiddenTestCount: number
@@ -40,7 +81,9 @@ export function countTests(source: string): number {
 export function loadRequests(
   requestsDir: string,
   exampleDir: string,
+  rules: Omit<RequestSetRules, 'folder'> = REQUEST_SET_RULES.easy,
 ): { requests: LoadedRequest[]; problems: string[] } {
+  const { minHiddenTests: min, maxHiddenTests: max } = rules
   const problems: string[] = []
   const requests = parseRequests(JSON.parse(readFileSync(path.join(requestsDir, 'requests.json'), 'utf8')))
   const loaded = requests.map((request): LoadedRequest => {
@@ -55,10 +98,8 @@ export function loadRequests(
       if (!existsSync(full)) problems.push(`${request.id}: hidden test ${file} is missing`)
       else hiddenTestCount += countTests(readFileSync(full, 'utf8'))
     }
-    if (hiddenTestCount < MIN_HIDDEN_TESTS || hiddenTestCount > MAX_HIDDEN_TESTS) {
-      problems.push(
-        `${request.id}: ${hiddenTestCount} hidden tests, expected ${MIN_HIDDEN_TESTS} to ${MAX_HIDDEN_TESTS}`,
-      )
+    if (hiddenTestCount < min || hiddenTestCount > max) {
+      problems.push(`${request.id}: ${hiddenTestCount} hidden tests, expected ${min} to ${max}`)
     }
     const solutionDir = path.join(dir, 'solution')
     const solutionFiles = existsSync(solutionDir) ? filesUnder(solutionDir) : []
@@ -66,7 +107,7 @@ export function loadRequests(
     for (const file of solutionFiles) {
       if (!file.startsWith(`src${path.sep}`))
         problems.push(`${request.id}: solution file ${file} is outside src/`)
-      else if (!existsSync(path.join(exampleDir, file))) {
+      else if (!rules.newFiles && !existsSync(path.join(exampleDir, file))) {
         problems.push(`${request.id}: solution file ${file} does not exist in the example`)
       }
     }
