@@ -12,9 +12,11 @@ serverless function, where the file system is read-only and a SQLite write-ahead
 
 - **`@crew/api`** is one Fetch handler (`createApi`) over the trace queries, so the same code runs on
   Node's http module locally and as a Vercel function. JSON in and out; errors say what to do next.
-- **Replay** only reads (any write answers 405). Locally it opens `.crew/replay.sqlite` read-only;
-  on Vercel, where there is no such file, the function seeds the same example data into an
-  in-memory database when it starts (milliseconds), so there is nothing to ship and nothing to write.
+- **Replay** only reads (any write answers 405). The local server and the Vercel function seed the
+  replay data into an in-memory database when they start (milliseconds), from the real scoreboard
+  (`evals/results/latest.json`) when there is one: nothing to ship, nothing to write, and the same data
+  in both places. (Updated 2026-11-26: the local server used to open `.crew/replay.sqlite`, which could
+  be stale and show old example numbers labelled as measured.)
   The function imports `@crew/api/replay`, which never loads the engine, the model client or the sandbox.
 - **Live** runs only locally (`pnpm crew serve --live`, 127.0.0.1, local origins only) with the person's
   own `ANTHROPIC_API_KEY`: it starts one run at a time and answers the gate through `WebGate`. Without a
