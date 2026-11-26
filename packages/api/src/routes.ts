@@ -29,6 +29,8 @@ export interface ApiOptions {
   mode: ApiMode
   /** Live mode: whether a key is set, and what to do when it isn't. */
   live?: LiveAvailability
+  /** Whether the Evaluation numbers are examples (default: true in replay, false live). */
+  exampleData?: boolean
   /** Live mode with a key: starts runs and holds the gate. */
   runner?: LiveRunner
   gate?: WebGate
@@ -90,6 +92,7 @@ const firstIssue = (issues: v.BaseIssue<unknown>[]) => issues[0]?.message ?? 'In
 
 export function createApi(options: ApiOptions): (request: Request) => Promise<Response> {
   const { trace, mode } = options
+  const exampleData = options.exampleData ?? mode === 'replay'
   const live =
     mode === 'live'
       ? (options.live ?? { available: false, how: HOW_TO_RUN_LIVE })
@@ -117,7 +120,7 @@ export function createApi(options: ApiOptions): (request: Request) => Promise<Re
     try {
       // GET /api/meta
       if (resource === 'meta' && !idText) {
-        return json({ mode, exampleData: mode === 'replay', replaySpeeds: REPLAY_SPEEDS, live })
+        return json({ mode, exampleData, replaySpeeds: REPLAY_SPEEDS, live })
       }
 
       // /api/runs
@@ -211,7 +214,7 @@ export function createApi(options: ApiOptions): (request: Request) => Promise<Re
 
       if (resource === 'evaluation' && !idText) {
         return json({
-          exampleData: mode === 'replay',
+          exampleData,
           main: evaluationSummary(trace, 'main'),
           learningCurve: {
             points: learningCurve(trace),

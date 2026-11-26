@@ -1,9 +1,13 @@
-// The public demo's API on Vercel: replay mode only. The recorded runs are seeded into an in-memory
-// database when the function starts, so there is no file to ship and nothing to write; no model is
-// ever called. vercel.json rewrites /api/<path> to /api/handler?path=<path>.
-import { createApi, openReplay } from '@crew/api/replay'
+// The public demo's API on Vercel: replay mode only. The recorded runs and the real scoreboard
+// (evals/results/latest.json, bundled with the function by this import) are seeded into an in-memory
+// database when the function starts, so there is no file to write; no model is ever called.
+// vercel.json rewrites /api/<path> to /api/handler?path=<path>.
+import { createApi, loadReplay, type ReplayOptions } from '@crew/api/replay'
 
-const api = createApi({ trace: openReplay(), mode: 'replay' })
+import results from '../evals/results/latest.json' with { type: 'json' }
+
+const replay = loadReplay({ evaluation: results as unknown as ReplayOptions['evaluation'] })
+const api = createApi({ trace: replay.trace, mode: 'replay', exampleData: replay.exampleData })
 
 /** The request as the API expects it: /api/<path>, with the other query parameters kept. */
 export function toApiRequest(request: Request): Request {

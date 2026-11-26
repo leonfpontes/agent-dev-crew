@@ -6,6 +6,6 @@ export {
   type LiveRunner,
 } from './live.js'
 export { serveHttp } from './node-http.js'
-export { openReplay } from './replay.js'
+export { loadReplay, openReplay, type Replay, type ReplayOptions } from './replay.js'
 export { createApi, MAX_BODY_BYTES, REPLAY_SPEEDS, type ApiMode, type ApiOptions } from './routes.js'
 export { WebGate } from './web-gate.js'

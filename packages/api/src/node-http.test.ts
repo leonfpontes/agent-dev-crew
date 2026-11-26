@@ -11,7 +11,10 @@ const dist = mkdtempSync(path.join(tmpdir(), 'crew-web-'))
 mkdirSync(path.join(dist, 'assets'))
 writeFileSync(path.join(dist, 'index.html'), '<!doctype html><title>Agent Dev Crew</title>')
 writeFileSync(path.join(dist, 'assets', 'app.js'), 'console.log(1)')
-const server = serveHttp(createApi({ trace: openReplay(), mode: 'replay' }), { port: 0, staticDir: dist })
+const server = serveHttp(createApi({ trace: openReplay(), mode: 'replay' }), {
+  port: 0,
+  staticDir: dist,
+})
 await new Promise((resolve) => server.once('listening', resolve))
 const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
 afterAll(async () => {

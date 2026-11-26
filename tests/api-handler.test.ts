@@ -16,8 +16,9 @@ describe('api/handler (Vercel, replay)', () => {
     expect(((await runs.json()) as { runs: unknown[] }).runs.length).toBeGreaterThan(0)
     const meta = (await (
       await GET(new Request('https://crew.example.dev/api/handler?path=meta'))
-    ).json()) as { mode: string }
-    expect(meta.mode).toBe('replay')
+    ).json()) as { mode: string; exampleData: boolean }
+    // The function ships the real scoreboard: the Evaluation is measured, not example data.
+    expect(meta).toMatchObject({ mode: 'replay', exampleData: false })
     const write = await POST(
       new Request('https://crew.example.dev/api/handler?path=runs', { method: 'POST', body: '{}' }),
     )

@@ -1,4 +1,4 @@
-import { existsSync, rmSync } from 'node:fs'
+import { existsSync, readFileSync, rmSync } from 'node:fs'
 import path from 'node:path'
 
 import { approveByPolicy, ScriptedProvider, toolUse } from '@crew/engine'
@@ -10,6 +10,7 @@ import {
   createLiveRunner,
   HOW_TO_RUN_LIVE,
   liveAvailability,
+  loadReplay,
   openReplay,
   WebGate,
 } from './index.js'
@@ -160,6 +161,32 @@ describe('replay mode', () => {
       body: { error: 'The demo replays recorded runs and changes nothing.', how: HOW_TO_RUN_LIVE },
     })
     expect((await post(api, '/api/runs/143/gate', { decision: 'approve' })).status).toBe(405)
+  })
+})
+
+describe('replay with the real scoreboard', () => {
+  const results = JSON.parse(readFileSync(path.join(ROOT, 'evals', 'results', 'latest.json'), 'utf8'))
+  const replay = loadReplay({ evaluation: results })
+  const api = createApi({ trace: replay.trace, mode: 'replay', exampleData: replay.exampleData })
+
+  it('serves the measured evaluation, not the example numbers, and says so', async () => {
+    expect(replay.exampleData).toBe(false)
+    const evaluation = (await get(api, '/api/evaluation')).body
+    expect(evaluation.exampleData).toBe(false)
+    const measured = (variant: string) => results.main.find((v: { variant: string }) => v.variant === variant)
+    for (const variant of ['single-agent', 'crew', 'crew-playbook']) {
+      const served = evaluation.main.find((v: { variant: string }) => v.variant === variant)
+      expect(served, variant).toBeDefined()
+      expect(measured(variant), variant).toBeDefined()
+    }
+    expect(evaluation.main.find((v: { variant: string }) => v.variant === 'single-agent').passRate.mean).toBe(
+      1,
+    )
+    expect((await get(api, '/api/meta')).body.exampleData).toBe(false)
+  })
+
+  it('keeps the recorded runs for the Runs screen', async () => {
+    expect((await get(api, '/api/runs')).body.runs.length).toBeGreaterThan(0)
   })
 })
 

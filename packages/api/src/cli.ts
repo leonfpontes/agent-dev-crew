@@ -9,12 +9,12 @@ import { parseArgs } from 'node:util'
 
 import { VARIANTS, type Variant } from '@crew/core'
 import { approveByPolicy, type GateDecider } from '@crew/engine'
-import { migrate, openTrace } from '@crew/trace'
+import { migrate, openTrace, type SeedEvaluation } from '@crew/trace'
 
 import { HOW_TO_RUN_LIVE, liveAvailability } from './live-info.js'
 import { createLiveRunner } from './live.js'
 import { serveHttp } from './node-http.js'
-import { openReplay } from './replay.js'
+import { loadReplay } from './replay.js'
 import { createApi } from './routes.js'
 import { WebGate } from './web-gate.js'
 
@@ -68,7 +68,12 @@ if (command === 'serve') {
     api = createApi({ trace, mode: 'live', live, gate, runner })
     if (!live.available) console.error(HOW_TO_RUN_LIVE)
   } else {
-    api = createApi({ trace: openReplay(path.join(root, '.crew', 'replay.sqlite')), mode: 'replay' })
+    const results = path.join(root, 'evals', 'results', 'latest.json')
+    const evaluation = existsSync(results)
+      ? (JSON.parse(readFileSync(results, 'utf8')) as SeedEvaluation)
+      : undefined
+    const replay = loadReplay({ file: path.join(root, '.crew', 'replay.sqlite'), evaluation })
+    api = createApi({ trace: replay.trace, mode: 'replay', exampleData: replay.exampleData })
   }
   const server = serveHttp(api, { port, staticDir })
   server.on('listening', () =>
