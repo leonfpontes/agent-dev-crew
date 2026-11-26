@@ -17,23 +17,31 @@ import { anthropicPrice, createAnthropicProvider, MODELS, promptVersion, repoRef
 import { migrate, openTrace } from '@crew/trace'
 
 import { parseEvalArgs } from './args.js'
-import { runEvaluation, RUN_BUDGET_MICROS } from './harness.js'
+import { runEvaluation } from './harness.js'
 import { loadRequests } from './requests.js'
 import { buildResults, toMarkdown, type ResultsMeta } from './results.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 // Every number is checked before anything runs: a budget that isn't a number would lift the cap.
-const args = parseEvalArgs(process.argv.slice(2), {
-  trace: path.join(root, '.crew/eval.sqlite'),
-  out: path.join(root, 'evals/results'),
-})
+// The easy set keeps the first paths (its readers use them); the hard set and the probes get their own.
+const args = parseEvalArgs(process.argv.slice(2), (set, probe) =>
+  probe
+    ? { trace: path.join(root, `.crew/probe-${set}.sqlite`), out: path.join(root, `.crew/probe-${set}`) }
+    : set === 'easy'
+      ? { trace: path.join(root, '.crew/eval.sqlite'), out: path.join(root, 'evals/results') }
+      : { trace: path.join(root, `.crew/eval-${set}.sqlite`), out: path.join(root, `evals/results/${set}`) },
+)
 const values = { trace: args.trace, out: args.out, report: args.report }
 
 const micros = (usd: number) => Math.round(usd * 1_000_000)
-const requestsDir = path.join(root, 'evals/requests')
+const requestsDir = path.join(root, args.set === 'easy' ? 'evals/requests' : `evals/requests-${args.set}`)
 const exampleDir = path.join(root, 'examples/fernhill-orders')
 const metaFile = `${values.trace}.meta.json`
 
+if (!existsSync(path.join(requestsDir, 'requests.json')))
+  throw new Error(
+    `The ${args.set} set has no requests yet: ${path.relative(root, requestsDir)}/requests.json is missing.`,
+  )
 const { requests: all, problems } = loadRequests(requestsDir, exampleDir)
 if (problems.length) throw new Error(`The requests folder has problems:\n${problems.join('\n')}`)
 const wanted = args.requests
@@ -67,6 +75,9 @@ if (values.report) {
     epochs: args.epochs,
     totalBudgetMicros: micros(args.budgetUsd),
     curveBudgetMicros: micros(args.curveBudgetUsd),
+    runBudgetMicros: micros(args.runBudgetUsd),
+    variants: args.probe ? ['single-agent'] : undefined,
+    learning: !args.probe,
     concurrency,
     log: (line) => console.log(`${new Date().toISOString().slice(11, 19)} ${line}`),
   })
@@ -84,7 +95,7 @@ if (values.report) {
     budgetUsd: {
       total: args.budgetUsd,
       learningCurve: args.curveBudgetUsd,
-      perRun: RUN_BUDGET_MICROS / 1_000_000,
+      perRun: args.runBudgetUsd,
     },
     stoppedEarly: outcome.stoppedEarly,
     learnedVersion: outcome.learnedVersion,
@@ -113,4 +124,16 @@ spawnSync(
   },
 )
 console.log(`Wrote ${path.relative(process.cwd(), values.out)}/latest.json and latest.md`)
+if (args.probe) {
+  // How hard each request is for the single agent: the number the data story calibrates against.
+  for (const m of results.matrix)
+    console.log(
+      `probe ${m.requestId}: ${(m.results['single-agent'] ?? []).map((ok) => (ok ? 'pass' : 'fail')).join(' ')}`,
+    )
+  const solo = results.main.find((x) => x.variant === 'single-agent')
+  if (solo)
+    console.log(
+      `probe: single agent passed ${Math.round(solo.passRate.mean * 100)}% for $${results.spentUsd.total.toFixed(4)}`,
+    )
+}
 if (meta.stoppedEarly) process.exitCode = 2

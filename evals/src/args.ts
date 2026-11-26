@@ -7,7 +7,15 @@ import { parseArgs } from 'node:util'
 /** Budgets above this need `--confirm-budget`, so a typo can't buy a large evaluation. */
 export const MAX_BUDGET_USD = 20
 
+/** The request sets: the easy baseline (evals/requests) and the hard set (evals/requests-hard). */
+export const SETS = ['easy', 'hard'] as const
+export type RequestSet = (typeof SETS)[number]
+
 export interface EvalArgs {
+  set: RequestSet
+  /** One round of the single agent, no learning: a cheap check of how hard the requests are. */
+  probe: boolean
+  runBudgetUsd: number
   rounds: number
   epochs: number
   concurrency: number
@@ -33,39 +41,55 @@ const count = (name: string, raw: string): number => {
   return n
 }
 
-export function parseEvalArgs(argv: string[], defaults: { trace: string; out: string }): EvalArgs {
+export function parseEvalArgs(
+  argv: string[],
+  defaults:
+    { trace: string; out: string } | ((set: RequestSet, probe: boolean) => { trace: string; out: string }),
+): EvalArgs {
   const { values } = parseArgs({
     args: argv,
     options: {
-      rounds: { type: 'string', default: '3' },
+      set: { type: 'string', default: 'easy' },
+      probe: { type: 'boolean', default: false },
+      'run-budget': { type: 'string', default: '0.25' },
+      rounds: { type: 'string' },
       epochs: { type: 'string', default: '3' },
-      budget: { type: 'string', default: '5' },
+      budget: { type: 'string' },
       'curve-budget': { type: 'string', default: '3' },
       concurrency: { type: 'string', default: '6' },
       requests: { type: 'string' },
-      trace: { type: 'string', default: defaults.trace },
-      out: { type: 'string', default: defaults.out },
+      trace: { type: 'string' },
+      out: { type: 'string' },
       report: { type: 'boolean', default: false },
       'confirm-budget': { type: 'boolean', default: false },
     },
   })
+  if (!SETS.includes(values.set as RequestSet))
+    throw new Error(`--set must be one of ${SETS.join(', ')} (got "${values.set}").`)
+  const set = values.set as RequestSet
+  const probe = values.probe
+  const paths = typeof defaults === 'function' ? defaults(set, probe) : defaults
   const args: EvalArgs = {
-    rounds: count('rounds', values.rounds),
+    set,
+    probe,
+    runBudgetUsd: positive('run-budget', values['run-budget']),
+    rounds: count('rounds', values.rounds ?? (probe ? '1' : '3')),
     epochs: count('epochs', values.epochs),
     concurrency: count('concurrency', values.concurrency),
-    budgetUsd: positive('budget', values.budget),
+    budgetUsd: positive('budget', values.budget ?? (probe ? '0.5' : '5')),
     curveBudgetUsd: positive('curve-budget', values['curve-budget']),
     requests: values.requests
       ?.split(',')
       .map((r) => r.trim())
       .filter(Boolean),
-    trace: values.trace,
-    out: values.out,
+    trace: values.trace ?? paths.trace,
+    out: values.out ?? paths.out,
     report: values.report,
   }
   for (const [name, usd] of [
     ['budget', args.budgetUsd],
     ['curve-budget', args.curveBudgetUsd],
+    ['run-budget', args.runBudgetUsd],
   ] as const)
     if (usd > MAX_BUDGET_USD && !values['confirm-budget'])
       throw new Error(

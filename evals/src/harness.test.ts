@@ -196,6 +196,30 @@ describe('runEvaluation', () => {
     trace.close()
   }, 240_000)
 
+  it('probes: only the single agent, one round, no learning', async () => {
+    const { trace, dir } = setup()
+    const scripted = provider()
+    const outcome = await runEvaluation({
+      trace,
+      provider: scripted,
+      price: flatPrice(1, 5),
+      requests: one,
+      requestsDir,
+      exampleDir,
+      workRoot: path.join(dir, 'runs'),
+      roles,
+      rounds: 1,
+      variants: ['single-agent'],
+      learning: false,
+    })
+    expect(outcome).toMatchObject({ runs: 1, epochVersions: [], learnedVersion: 1 })
+    expect(trace.prepare('SELECT eval_suite, variant FROM runs').all()).toEqual([
+      { eval_suite: 'main', variant: 'single-agent' },
+    ])
+    expect(scripted.calls.every((c) => c.agent === 'solo')).toBe(true)
+    trace.close()
+  }, 120_000)
+
   it('refuses rounds, epochs or runs at once that are not whole numbers of 1 or more', async () => {
     const { trace, dir } = setup()
     const base = {

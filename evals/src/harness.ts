@@ -58,6 +58,10 @@ export interface EvalOptions {
   runBudgetMicros?: number
   concurrency?: number
   testTimeoutMs?: number
+  /** Variants of the ablation (default all three). A probe runs only the single agent. */
+  variants?: Variant[]
+  /** Learning epochs and the curve's other rounds (default on). Off for a probe. */
+  learning?: boolean
   log?: (line: string) => void
   now?: () => Date
 }
@@ -210,8 +214,11 @@ export async function runEvaluation(options: EvalOptions): Promise<EvalOutcome> 
     }
   }
 
+  const variants = options.variants ?? MAIN_VARIANTS
+  const learning = options.learning ?? true
+
   // 1. Learning.
-  for (let epoch = 1; epoch <= epochs; epoch++) {
+  for (let epoch = 1; learning && epoch <= epochs; epoch++) {
     const version = currentPlaybook(trace).version
     outcome.epochVersions.push(version)
     log(`learning epoch ${epoch}: playbook v${version}`)
@@ -239,7 +246,7 @@ export async function runEvaluation(options: EvalOptions): Promise<EvalOutcome> 
   const main: EvalJob[] = []
   for (let round = 1; round <= rounds; round++)
     for (const request of requests)
-      for (const variant of MAIN_VARIANTS)
+      for (const variant of variants)
         main.push({
           suite: 'main',
           variant,
@@ -252,7 +259,7 @@ export async function runEvaluation(options: EvalOptions): Promise<EvalOutcome> 
   await pool(main, concurrency, runJob)
 
   // 3. The first version's other rounds (its first round was learning epoch 1).
-  if (outcome.learnedVersion !== first.version && outcome.epochVersions[0] === first.version) {
+  if (learning && outcome.learnedVersion !== first.version && outcome.epochVersions[0] === first.version) {
     const extra: EvalJob[] = []
     for (let round = 2; round <= rounds; round++)
       for (const request of requests)

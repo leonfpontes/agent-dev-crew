@@ -11,6 +11,9 @@ const parse = (...argv: string[]) => parseEvalArgs(argv, defaults)
 describe('parseEvalArgs', () => {
   it('has the defaults of the official run', () => {
     expect(parse()).toEqual({
+      set: 'easy',
+      probe: false,
+      runBudgetUsd: 0.25,
       rounds: 3,
       epochs: 3,
       concurrency: 6,
@@ -64,6 +67,29 @@ describe('parseEvalArgs', () => {
   it.each([['0'], ['1.5'], ['two'], ['-3'], ['']])('refuses %s rounds, epochs or runs at once', (value) => {
     for (const flag of ['rounds', 'epochs', 'concurrency'])
       expect(() => parse(`--${flag}=${value}`)).toThrow(`--${flag} must be a whole number of 1 or more`)
+  })
+
+  it('picks the request set, and a probe defaults to 1 round and $0.50 with its own paths', () => {
+    const paths = (set: string, probe: boolean) => ({
+      trace: `/t/${set}-${probe}`,
+      out: `/o/${set}-${probe}`,
+    })
+    expect(parseEvalArgs(['--set', 'hard'], paths)).toMatchObject({
+      set: 'hard',
+      rounds: 3,
+      budgetUsd: 5,
+      trace: '/t/hard-false',
+    })
+    expect(parseEvalArgs(['--set', 'hard', '--probe', '--run-budget', '0.1'], paths)).toMatchObject({
+      set: 'hard',
+      probe: true,
+      rounds: 1,
+      budgetUsd: 0.5,
+      runBudgetUsd: 0.1,
+      out: '/o/hard-true',
+    })
+    expect(() => parse('--set', 'medium')).toThrow('--set must be one of easy, hard')
+    expect(() => parse('--run-budget=0')).toThrow('--run-budget must be a number of dollars above 0')
   })
 
   it(`asks for --confirm-budget above $${MAX_BUDGET_USD}`, () => {
