@@ -102,9 +102,12 @@ function useChartFrame() {
   useLayoutEffect(() => {
     const el = ref.current
     if (!el || typeof ResizeObserver === 'undefined') return
-    const set = () => setWidth(el.clientWidth || 600)
-    set()
-    const ro = new ResizeObserver(set)
+    // The content box: the SVG's own width, without the card's padding.
+    const style = getComputedStyle(el)
+    setWidth(el.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) || 600)
+    const ro = new ResizeObserver(([entry]) => {
+      if (entry) setWidth(entry.contentRect.width || 600)
+    })
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
