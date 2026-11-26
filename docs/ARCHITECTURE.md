@@ -30,16 +30,16 @@ Packages, Node version and storage: [ADR 0002](adr/0002-packages-node-and-storag
 
 Types, routes and formats the parts exchange. If one changes here, the doc changes in the same PR.
 
-| Contract                                                                                                                             | Defined in                                       | Used by                                 |
-| ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ | --------------------------------------- |
-| Roles `po`, `engineer`, `reviewer`, `qa`, in pipeline order                                                                          | `packages/core/src/contracts.ts` (`ROLES`)       | engine, trace, app                      |
-| Step statuses `queued`, `running`, `passed`, `failed`, `waiting`, `approved`, `rejected`, `changes-requested`, `fix-loop`, `skipped` | `STEP_STATUSES`                                  | trace, app (one icon shape each)        |
-| Gate decisions `approve`, `request-changes`, `reject`                                                                                | `GATE_DECISIONS`                                 | engine, CLI, app                        |
-| Variants `single-agent`, `crew`, `crew-playbook`                                                                                     | `VARIANTS`                                       | evaluation, scoreboard, app             |
-| At most 2 fix loops (QA → Engineer)                                                                                                  | `MAX_FIX_LOOPS`                                  | engine                                  |
-| Pipeline as a DAG of `{ id, after[] }`, walked in dependency order; a cycle is a definition error                                    | `topologicalOrder` in `packages/core/src/dag.ts` | engine                                  |
-| Sandbox policy `{ read[], write[] }` (absolute folders, resolved to real paths), empty environment, no child processes               | `packages/sandbox/src/permissions.ts`            | engine (Engineer and QA tools)          |
-| Feature request `{ id, title, request, hiddenTests[] }`                                                                              | `evals/src/contracts.ts` (`parseRequests`)       | data story (writes), evaluation (reads) |
+| Contract                                                                                                                                                                                                | Defined in                                       | Used by                                 |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | --------------------------------------- |
+| Roles `po`, `engineer`, `reviewer`, `qa`, in pipeline order                                                                                                                                             | `packages/core/src/contracts.ts` (`ROLES`)       | engine, trace, app                      |
+| Step statuses `queued`, `running`, `passed`, `failed`, `waiting`, `approved`, `rejected`, `changes-requested`, `fix-loop`, `skipped`                                                                    | `STEP_STATUSES`                                  | trace, app (one icon shape each)        |
+| Gate decisions `approve`, `request-changes`, `reject`                                                                                                                                                   | `GATE_DECISIONS`                                 | engine, CLI, app                        |
+| Variants `single-agent`, `crew`, `crew-playbook`                                                                                                                                                        | `VARIANTS`                                       | evaluation, scoreboard, app             |
+| At most 2 fix loops (QA → Engineer)                                                                                                                                                                     | `MAX_FIX_LOOPS`                                  | engine                                  |
+| Pipeline as a DAG of `{ id, after[] }`, walked in dependency order; a cycle is a definition error                                                                                                       | `topologicalOrder` in `packages/core/src/dag.ts` | engine                                  |
+| Sandbox policy `{ read[], write[], childProcesses?, addons? }` (absolute folders, resolved to real paths), no worker threads, environment with only the network blocker; `runVitest(repo, { include })` | `packages/sandbox/src/permissions.ts`            | engine (Engineer and QA tools)          |
+| Feature request `{ id, title, request, hiddenTests[] }`                                                                                                                                                 | `evals/src/contracts.ts` (`parseRequests`)       | data story (writes), evaluation (reads) |
 
 ### Trace database
 
@@ -82,5 +82,33 @@ HTTP API (`createApp({ db, now }).fetch(request)`). `pnpm --filter @crew/evals v
 request is a fair test: its hidden tests fail on the example as it ships and pass on the solution, which
 keeps the 20 visible tests green and type-checks.
 
-⚠️ Network access from the sandbox is blocked in the engine story; today the sandbox removes the
-environment, limits writes and blocks child processes.
+### Engine (`@crew/engine`)
+
+`runCrew(options)` takes one request through the crew and writes it to the trace ([ADR 0003](adr/0003-engine-and-sandbox.md)):
+
+- **crew / crew-playbook:** `plan` (PO, must call `submit_plan`) → `gate` (run status `waiting` until a
+  `GateDecider` answers; request changes sends the comment back to the PO, at most 2 revisions) →
+  `code` (Engineer) → `review` (Reviewer, `submit_review`) → `test` (QA) → up to 2 `fix-loop` steps,
+  each a parent of `fix` (Engineer, with the failures and the review comments) and `test` (QA) → `retro`
+  (optional hook, never fails the run).
+- **single-agent:** `solo` (one agent with every tool) → `test`. Tests still failing when it stops count
+  as `fix-loops-exhausted`: it has no loop of its own.
+- **The tests that decide a step are the engine's own sandboxed run** at the end of the QA (or solo)
+  step, recorded as a `tool.result` with `by: "engine"`; what a model says about tests never counts.
+- **Budget:** before every model call the engine prices the worst case (the request's estimated input
+  plus `maxTokens` of output); if it doesn't fit, the step fails with a `budget.exceeded` event and the
+  run fails `over-budget` without making the call.
+- **Fallback:** when the provider throws, the step retries once with the role's fallback model
+  (`fallback_used = 1`, `attempt = 2`); a second failure fails the run with `error`.
+- **Hidden tests:** `scoreHiddenTests(trace, runId, repoDir, files)` copies them to `<copy>/hidden/`
+  after the run, runs only them and records `hidden_passed` / `hidden_total`.
+
+| Contract (for the AI story)                                                                                                                                                                                                                      | Defined in                                                   | Notes                                                                                                   |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| `ModelProvider.complete(request) → ModelResponse`: `{ agent, model, system, messages, tools, maxTokens }` in; `{ model, content[] (text, tool_use), stopReason, usage, raw }` out. Throw when the call fails after the provider's own retries    | `packages/engine/src/provider.ts`                            | Messages API shapes; `usage` = input (not cached), cache read, cache write, output                      |
+| `PriceFn(model, usage) → micros`                                                                                                                                                                                                                 | `provider.ts`                                                | the real price table; `flatPrice` for tests                                                             |
+| `RoleSpec`: `{ agent, promptFile, playbookSection?, models: { primary, fallback? }, maxTurns, maxTokens, system(input), user(input), rules?(input) }`, one per `po`, `engineer`, `reviewer`, `qa`, `solo`                                        | `packages/engine/src/roles.ts`                               | `RoleInput` carries the request, plan, gate comment, diff, failures, review comments, loop and playbook |
+| Tools per agent: PO `list_files`, `read_file`, `submit_plan`; Engineer and solo `list_files`, `read_file`, `write_file` (src/, tests/), `run_tests`; Reviewer `list_files`, `read_file`, `submit_review`; QA the Engineer's, writing tests/ only | `packages/engine/src/tools.ts` (`AGENT_TOOLS`, `TOOL_SPECS`) | paths stay in src/ and tests/: no absolute paths, no `..`, no hidden files                              |
+| `GateDecider.decide({ runId, title, plan, revision, budgetLeftMicros }) → { decision, by, comment? }`; `approveByPolicy` for the evaluation                                                                                                      | `packages/engine/src/gate.ts`                                | request changes and reject need a comment                                                               |
+| Retro hook `(context) → { lessons[] }`, recorded as `lesson.proposed` events                                                                                                                                                                     | `engine.ts`                                                  | the AI story writes the lessons table and the playbook proposal                                         |
+| `ScriptedProvider` (answers from a script per agent; never calls an API)                                                                                                                                                                         | `provider.ts`                                                | for tests and recorded demos                                                                            |
