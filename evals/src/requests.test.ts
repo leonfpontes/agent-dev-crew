@@ -100,19 +100,17 @@ describe('evals/requests-hard', () => {
   const { requests, problems } = loadRequestSet(evalsDir, exampleDir, 'hard')
   const easy = loadRequests(requestsDir, exampleDir).requests
 
-  it('has 10 hard requests with 74 hidden tests, a reference solution each, and ids the easy set does not use', () => {
+  it('has 8 hard requests of two parts each, with 132 hidden tests, a solution each, and ids the easy set does not use', () => {
     expect(problems).toEqual([])
     expect(requests.map((r) => [r.id, r.hiddenTestCount])).toEqual([
-      ['stock-reservations', 7],
-      ['promotions', 8],
-      ['store-timezone-reports', 8],
-      ['split-shipments', 7],
-      ['loyalty-points', 8],
-      ['idempotency-keys', 7],
-      ['returns', 8],
-      ['price-changes', 8],
-      ['order-query', 7],
-      ['gift-cards', 6],
+      ['stock-and-returns', 17],
+      ['gift-cards-retries', 16],
+      ['local-day-queries', 16],
+      ['shipment-queries', 15],
+      ['scheduled-promotions', 18],
+      ['points-and-gift-cards', 17],
+      ['ship-and-return', 17],
+      ['retry-safe-stock', 16],
     ])
     const easyIds = new Set(easy.map((r) => r.id))
     expect(requests.filter((r) => easyIds.has(r.id))).toEqual([])
@@ -175,7 +173,7 @@ describe('request sets', () => {
     expect([isRequestSet('hard'), isRequestSet('medium')]).toEqual([true, false])
   })
 
-  it('applies the hard rules: 4 to 8 hidden tests, and a solution may add a file under src/', () => {
+  it('applies the hard rules: 10 to 20 hidden tests, and a solution may add a file under src/', () => {
     const dir = path.join(evalsDir, '../.crew/hard-rules')
     rmSync(dir, { recursive: true, force: true })
     const write = (file: string, text: string) => {
@@ -183,7 +181,7 @@ describe('request sets', () => {
       writeFileSync(path.join(dir, file), text)
     }
     const cases = (n: number) => Array.from({ length: n }, (_, i) => `it('case ${i}', () => {})`).join('\n')
-    write('eight/eight.test.ts', cases(8))
+    write('eight/eight.test.ts', cases(12))
     write('eight/solution/src/routes/new-route.ts', '')
     write('three/three.test.ts', cases(3))
     write('three/solution/src/money.ts', '')
@@ -199,10 +197,10 @@ describe('request sets', () => {
       ),
     )
     expect(loadRequests(dir, exampleDir, REQUEST_SET_RULES.hard).problems).toEqual([
-      'three: 3 hidden tests, expected 4 to 8',
+      'three: 3 hidden tests, expected 10 to 20',
     ])
     expect(loadRequests(dir, exampleDir).problems).toEqual([
-      'eight: 8 hidden tests, expected 3 to 7',
+      'eight: 12 hidden tests, expected 3 to 7',
       'eight: solution file src/routes/new-route.ts does not exist in the example',
     ])
     rmSync(dir, { recursive: true, force: true })

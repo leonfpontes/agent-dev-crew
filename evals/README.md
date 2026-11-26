@@ -40,23 +40,24 @@ pnpm eval --budget 5$                               # refused: "--budget must be
 
 ## The hard set
 
-The easy set asks for one rule per request, and a single agent passed all of it. The hard set keeps the
-same example and asks for changes that take several steps across 2 to 6 files, where a rule the
-request states is easy to miss. Every expected status code, field and error message is written in the
-request; nothing is hidden.
+The easy set asks for one rule per request, and a single agent passed all of it. Calibration probes
+(one round of the single agent) showed that harder single features weren't enough either: 9 of 10,
+then 10 of 10. So each hard request now asks for two features that interact, on the same example:
+several routes, state that carries from one request to the next (stock, carts, orders, balances,
+refunds), changes across modules, and rules that only hold when both parts are right. Every expected
+status code, field and error message is written in the request, under "Part 1", "Part 2" and
+"Together"; nothing is hidden. A request passes only when all its hidden tests pass (15 to 18 each).
 
-| Request                  | What makes it hard                                                                                                                                 |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `stock-reservations`     | A new route, stock taken when an order is placed and given back on cancel, and no overselling when orders race for the last units                  |
-| `promotions`             | Three promotions in a fixed order, one measured after the others and limited to once per customer per New York day; the tax rounded once per order |
-| `store-timezone-reports` | Days and Monday-start weeks in America/New_York across both daylight saving changes; empty days; dates that don't exist                            |
-| `split-shipments`        | Partial shipments next to the old ship route, a new status, checks in a stated order, and shipments that race for the same units                   |
-| `loyalty-points`         | Points earned at payment and redeemed at placement, a gold rate from 500 lifetime points, and cancels that give back and take back points          |
-| `idempotency-keys`       | Replays per path compared by JSON value, errors not remembered, a 24-hour expiry, and a retry that arrives while the first is running              |
-| `returns`                | A 30-day window, a tax share per return, a restocking fee from day 14, and a last return that closes the total                                     |
-| `price-changes`          | Carts at the price of the moment, scheduled prices that start on the app clock, orders frozen at placement                                         |
-| `order-query`            | Seven combinable parameters, a sort over several keys with status in lifecycle order, the first invalid parameter named                            |
-| `gift-cards`             | A payment, not a discount: totals unchanged, an order placed already paid, codes that ignore case                                                  |
+| Request                 | Parts                                | What only works when both parts are right                                                        |
+| ----------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `stock-and-returns`     | Stock reservations · returns         | Returned units go back on sale; returns, orders and cancels share one queue so stock stays right |
+| `gift-cards-retries`    | Gift cards · Idempotency-Key         | A retry spends nothing twice; orders racing for one card take from it in turn                    |
+| `local-day-queries`     | Store-day reports · order query      | `from`/`to` on the order list use the New York day, like the reports                             |
+| `shipment-queries`      | Split shipments · order query        | `partially_shipped` in the filter, and between paid and shipped in the sort                      |
+| `scheduled-promotions`  | Promotions · scheduled prices        | Promotions use the prices in force when the order is placed                                      |
+| `points-and-gift-cards` | Loyalty points · gift cards          | Points first, then the card; an order the card pays in full earns its points at placement        |
+| `ship-and-return`       | Split shipments · returns            | Only shipped units come back; the last return closes the total                                   |
+| `retry-safe-stock`      | Stock reservations · Idempotency-Key | A replay takes no stock; a refusal for stock isn't remembered; cancels are retry-safe too        |
 
 ## Limits
 

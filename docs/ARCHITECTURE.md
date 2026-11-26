@@ -124,8 +124,7 @@ to both, and the app shows the API's `how`).
 
 Two sets of requests run on the same, unchanged `fernhill-orders`: the **easy** set
 (`evals/requests/`, 10 one-rule requests, 51 hidden tests, the baseline of the first evaluation) and the
-**hard** set (`evals/requests-hard/`, 10 multi-step requests across files with subtle rules, 74 hidden
-tests). Each set has a `requests.json`, and `<set>/<id>/` holds the hidden test files and a reference
+**hard** set (`evals/requests-hard/`, 8 requests of two interacting features each, 132 hidden tests). Each set has a `requests.json`, and `<set>/<id>/` holds the hidden test files and a reference
 `solution/` (files that replace or add to `src/` of the example). The engine never puts `evals/` in a
 sandbox read list. After the crew finishes, the harness copies the hidden tests into the run's copy of
 `fernhill-orders` at `hidden/`; they import the app from `../src/index.js` and use only its HTTP API
@@ -135,9 +134,9 @@ solution, which keeps the 20 visible tests green and type-checks. A test also ch
 message a hard hidden test expects is written in the request (or is one the example already gives), so
 no request hides a requirement.
 
-| Contract                                                                                                                                                                                                                       | Defined in              | Used by                                  |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------- | ---------------------------------------- |
-| `REQUEST_SETS` (`easy`, `hard`), `REQUEST_SET_RULES` (folder, 3 to 7 hidden tests for easy and 4 to 8 for hard, whether a solution may add files), `requestSetDir(evalsDir, set)`, `loadRequestSet(evalsDir, exampleDir, set)` | `evals/src/requests.ts` | `pnpm eval --set`, `pnpm validate --set` |
+| Contract                                                                                                                                                                                                                         | Defined in              | Used by                                  |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- | ---------------------------------------- |
+| `REQUEST_SETS` (`easy`, `hard`), `REQUEST_SET_RULES` (folder, 3 to 7 hidden tests for easy and 10 to 20 for hard, whether a solution may add files), `requestSetDir(evalsDir, set)`, `loadRequestSet(evalsDir, exampleDir, set)` | `evals/src/requests.ts` | `pnpm eval --set`, `pnpm validate --set` |
 
 ### Evaluation and scoreboard
 

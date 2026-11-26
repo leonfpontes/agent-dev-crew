@@ -13,8 +13,8 @@ export const MAX_HIDDEN_TESTS = 7
 
 /**
  * The two sets of requests, on the same example. `easy` (evals/requests) is the baseline the first
- * evaluation ran; `hard` (evals/requests-hard) asks for multi-step changes across files, with subtle
- * rules, and its solutions may add new files under src/.
+ * evaluation ran; `hard` (evals/requests-hard) asks in each request for two features that interact,
+ * across several routes and modules, and its solutions may add new files under src/.
  */
 export const REQUEST_SETS = ['easy', 'hard'] as const
 export type RequestSet = (typeof REQUEST_SETS)[number]
@@ -35,7 +35,7 @@ export const REQUEST_SET_RULES: Record<RequestSet, RequestSetRules> = {
     maxHiddenTests: MAX_HIDDEN_TESTS,
     newFiles: false,
   },
-  hard: { folder: 'requests-hard', minHiddenTests: 4, maxHiddenTests: 8, newFiles: true },
+  hard: { folder: 'requests-hard', minHiddenTests: 10, maxHiddenTests: 20, newFiles: true },
 }
 
 export function isRequestSet(value: string): value is RequestSet {
