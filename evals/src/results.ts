@@ -70,6 +70,8 @@ export const RunRowSchema = v.object({
 
 export const ResultsSchema = v.object({
   schema: v.literal(RESULTS_SCHEMA_VERSION),
+  /** The request set: `easy` (the baseline) or `hard`. Absent in scoreboards written before sets. */
+  set: v.optional(v.picklist(['easy', 'hard']), 'easy'),
   runAt: v.string(),
   model: v.string(),
   fallbackModel: v.nullable(v.string()),
@@ -81,6 +83,8 @@ export const ResultsSchema = v.object({
   budgetUsd: v.object({ total: v.number(), learningCurve: v.number(), perRun: v.number() }),
   spentUsd: v.object({ total: v.number(), main: v.number(), learningCurve: v.number() }),
   stoppedEarly: v.boolean(),
+  /** What a reader must know to read the numbers right (a known bug, a missing round), in English. */
+  notes: v.optional(v.array(v.string()), []),
   main: v.array(VariantResultSchema),
   curve: v.array(CurvePointSchema),
   matrix: v.array(
@@ -134,6 +138,7 @@ const ms = (stat: { mean: number; sd: number }, f: (n: number) => number) => ({
 })
 
 export interface ResultsMeta {
+  set?: 'easy' | 'hard'
   runAt: string
   model: string
   fallbackModel: string | null
@@ -145,6 +150,7 @@ export interface ResultsMeta {
   budgetUsd: Results['budgetUsd']
   stoppedEarly: boolean
   learnedVersion: number
+  notes?: string[]
 }
 
 const countRules = (content: string) => content.split('\n').filter((l) => /^\s*-\s+/.test(l)).length
@@ -254,6 +260,7 @@ export function buildResults(trace: TraceDb, meta: ResultsMeta): Results {
     usd(rows.filter((r) => !suite || r.suite === suite).reduce((s, r) => s + r.costMicros, 0))
   return parseResults({
     schema: RESULTS_SCHEMA_VERSION,
+    set: meta.set ?? 'easy',
     runAt: meta.runAt,
     model: meta.model,
     fallbackModel: meta.fallbackModel,
@@ -265,6 +272,7 @@ export function buildResults(trace: TraceDb, meta: ResultsMeta): Results {
     budgetUsd: meta.budgetUsd,
     spentUsd: { total: spent(), main: spent('main'), learningCurve: spent('learning-curve') },
     stoppedEarly: meta.stoppedEarly,
+    notes: meta.notes ?? [],
     main,
     curve,
     matrix: requestMatrix(trace).map((m) => ({ ...m, results: m.results as Record<string, boolean[]> })),
@@ -306,6 +314,23 @@ const NAMES: Record<Variant, string> = {
   'crew-playbook': 'Crew + learned playbook',
 }
 
+/** What a stopped evaluation lacks: ablation runs per variant, and curve points short of 3 rounds. */
+export function missing(r: Results): string {
+  const want = r.requests * r.rounds
+  const main = r.main.filter((m) => m.runs < want).map((m) => `${m.variant} ${m.runs} of ${want} runs`)
+  // The first and the last point get 3 rounds; the ones in between 1 by design.
+  const ends = [r.curve[0], r.curve[r.curve.length - 1]].filter((p, i, all) => p && all.indexOf(p) === i)
+  const curve = ends
+    .filter((p) => p!.rounds < 3)
+    .map((p) => `v${p!.playbookVersion} ${p!.rounds} round${p!.rounds === 1 ? '' : 's'} of 3`)
+  return [
+    main.length ? `ablation: ${main.join(', ')}` : 'ablation complete',
+    curve.length ? `curve: ${curve.join(', ')}` : '',
+  ]
+    .filter(Boolean)
+    .join('; ')
+}
+
 /** One sentence on what the learning epochs produced. */
 export function learning(r: Results): string {
   const runs = r.runs.filter((x) => x.suite === 'learning-curve' && x.round === 11).length
@@ -319,11 +344,12 @@ export function learning(r: Results): string {
 /** The scoreboard for people: the same numbers as latest.json. */
 export function toMarkdown(r: Results): string {
   const lines = [
-    '# Evaluation results',
+    r.set === 'hard' ? '# Evaluation results · hard set' : '# Evaluation results · easy set (baseline)',
     '',
     `${r.requests} feature requests × ${r.main.length} variants × ${r.rounds} rounds on \`${r.model}\` (fallback \`${r.fallbackModel ?? 'none'}\`), prompts \`${r.promptVersion}\`, example \`${r.repoRef}\`, run ${r.runAt.slice(0, 10)}.`,
-    `Spent $${r.spentUsd.total.toFixed(2)} of the $${r.budgetUsd.total.toFixed(2)} cap (ablation $${r.spentUsd.main.toFixed(2)}, learning curve $${r.spentUsd.learningCurve.toFixed(2)} of its $${r.budgetUsd.learningCurve.toFixed(2)}).${r.stoppedEarly ? ' **Stopped early: the budget ran out, so some runs are missing.**' : ''}`,
+    `Spent $${r.spentUsd.total.toFixed(2)} of the $${r.budgetUsd.total.toFixed(2)} cap (ablation $${r.spentUsd.main.toFixed(2)}, learning curve $${r.spentUsd.learningCurve.toFixed(2)} of its $${r.budgetUsd.learningCurve.toFixed(2)}).${r.stoppedEarly ? ` **Stopped early: the budget ran out, so some runs are missing** (${missing(r)}).` : ''}`,
     '',
+    ...r.notes.flatMap((n) => [`> **Note:** ${n}`, '']),
     'Mean ± standard deviation across rounds. A request passes when all its hidden acceptance tests pass.',
     '',
     '| Variant | Requests passing | Hidden tests passing | Cost per request | Tokens per request | Time per request | Fix loops per request | Gate interventions |',

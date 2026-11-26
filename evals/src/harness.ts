@@ -62,6 +62,12 @@ export interface EvalOptions {
   variants?: Variant[]
   /** Learning epochs and the curve's other rounds (default on). Off for a probe. */
   learning?: boolean
+  /**
+   * Resume a stopped evaluation in the same trace: runs only the ablation runs it doesn't have yet
+   * (same suite, variant, round and request), on the playbook version already learned. Use it with
+   * `learning: false`, so no curve round is left half done.
+   */
+  skipExisting?: boolean
   log?: (line: string) => void
   now?: () => Date
 }
@@ -275,8 +281,22 @@ export async function runEvaluation(options: EvalOptions): Promise<EvalOutcome> 
           playbookVersion: variant === 'crew-playbook' ? outcome.learnedVersion : undefined,
           retro: false,
         })
-  log(`ablation: ${main.length} runs, crew-playbook on v${outcome.learnedVersion}`)
-  await pool(main, concurrency, runJob)
+  const done = new Set(
+    (
+      trace
+        .prepare(
+          "SELECT variant, eval_round, request_id FROM runs WHERE eval_suite = 'main' AND status <> 'running'",
+        )
+        .all() as { variant: string; eval_round: number; request_id: string }[]
+    ).map((r) => `${r.variant}|${r.eval_round}|${r.request_id}`),
+  )
+  const todo = options.skipExisting
+    ? main.filter((j) => !done.has(`${j.variant}|${j.round}|${j.request.id}`))
+    : main
+  log(
+    `ablation: ${todo.length} runs${todo.length < main.length ? ` (${main.length - todo.length} already in the trace)` : ''}, crew-playbook on v${outcome.learnedVersion}`,
+  )
+  await pool(todo, concurrency, runJob)
 
   // 3. The first version's other rounds (its first round was learning epoch 1).
   if (learning && outcome.learnedVersion !== first.version && outcome.epochVersions[0] === first.version) {

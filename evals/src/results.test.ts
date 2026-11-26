@@ -1,6 +1,6 @@
 // The published scoreboard against its sources: its own runs, the Markdown copy, and the replay
 // seed the app reads. If a number in the README or the app disagrees with latest.json, this fails.
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -10,10 +10,20 @@ import { describe, expect, it } from 'vitest'
 import { parseResults, toMarkdown } from './results.js'
 import { expectReplayToMatch } from './test/replay.js'
 
-const resultsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '../results')
-const results = parseResults(JSON.parse(readFileSync(path.join(resultsDir, 'latest.json'), 'utf8')))
+const resultsRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '../results')
+// The easy set (the baseline) in latest.json, the hard set in hard.json once it has run.
+const boards = [
+  { name: 'evals/results/latest.json', stem: 'latest', set: 'easy' },
+  { name: 'evals/results/hard.json', stem: 'hard', set: 'hard' },
+].filter((b) => existsSync(path.join(resultsRoot, `${b.stem}.json`)))
 
-describe('evals/results/latest.json', () => {
+describe.each(boards)('$name', ({ stem, set }) => {
+  const results = parseResults(JSON.parse(readFileSync(path.join(resultsRoot, `${stem}.json`), 'utf8')))
+
+  it('says which request set it measured', () => {
+    expect(results.set).toBe(set)
+  })
+
   it('agrees with its own runs: pass rate and cost per variant, rounds, and the total spent', () => {
     for (const m of results.main) {
       const mine = results.runs.filter((x) => x.suite === 'main' && x.variant === m.variant)
@@ -39,16 +49,22 @@ describe('evals/results/latest.json', () => {
     for (const m of results.main) expect(m.runs).toBe(results.requests * results.rounds)
   })
 
-  it('is what latest.md says', () => {
+  it('is what its .md says', () => {
     const squash = (text: string) =>
       text
         .replace(/[ -]+\|/g, '|')
         .replace(/\|[ -]+/g, '|')
         .trim()
-    expect(squash(readFileSync(path.join(resultsDir, 'latest.md'), 'utf8'))).toBe(squash(toMarkdown(results)))
+    expect(squash(readFileSync(path.join(resultsRoot, `${stem}.md`), 'utf8'))).toBe(
+      squash(toMarkdown(results)),
+    )
   })
 
-  it('is what the replay demo shows: the seed reproduces every number of the scoreboard', () => {
-    expectReplayToMatch(results)
-  })
+  // The replay seed holds the easy set (its requests are the seed's); the hard set isn't seeded.
+  it.runIf(set === 'easy')(
+    'is what the replay demo shows: the seed reproduces every number of the scoreboard',
+    () => {
+      expectReplayToMatch(results)
+    },
+  )
 })

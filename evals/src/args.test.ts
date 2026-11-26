@@ -13,6 +13,7 @@ describe('parseEvalArgs', () => {
     expect(parse()).toEqual({
       set: 'easy',
       probe: false,
+      resume: false,
       runBudgetUsd: 0.25,
       rounds: 3,
       epochs: 3,

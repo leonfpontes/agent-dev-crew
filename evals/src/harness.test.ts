@@ -240,6 +240,41 @@ describe('runEvaluation', () => {
     trace.close()
   }, 120_000)
 
+  it('resumes a stopped evaluation: only the ablation runs the trace lacks, on the learned version', async () => {
+    const { trace, dir } = setup()
+    const base = {
+      trace,
+      price: flatPrice(1, 5),
+      requests: one,
+      requestsDir,
+      exampleDir,
+      workRoot: path.join(dir, 'runs'),
+      roles,
+      rounds: 1,
+      learning: false,
+    }
+    // The first try stops after the single agent (the other two don't fit the budget).
+    const first = await runEvaluation({
+      ...base,
+      provider: provider(),
+      totalBudgetMicros: 250_000, // exactly one run: after it spends anything, the next one no longer fits
+      runBudgetMicros: 250_000,
+      concurrency: 1,
+    })
+    expect(first).toMatchObject({ runs: 1, skipped: 2, stoppedEarly: true })
+    const scripted = provider()
+    const resumed = await runEvaluation({ ...base, provider: scripted, skipExisting: true })
+    expect(resumed).toMatchObject({ runs: 2, skipped: 0, stoppedEarly: false })
+    expect(scripted.calls.some((c) => c.agent === 'solo')).toBe(false)
+    const variants = trace.prepare("SELECT variant FROM runs WHERE eval_suite = 'main' ORDER BY id").all()
+    expect(variants.map((v) => (v as { variant: string }).variant)).toEqual([
+      'single-agent',
+      'crew',
+      'crew-playbook',
+    ])
+    trace.close()
+  }, 240_000)
+
   it('refuses rounds, epochs or runs at once that are not whole numbers of 1 or more', async () => {
     const { trace, dir } = setup()
     const base = {

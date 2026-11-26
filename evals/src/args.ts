@@ -13,6 +13,8 @@ export interface EvalArgs {
   set: RequestSet
   /** One round of the single agent, no learning: a cheap check of how hard the requests are. */
   probe: boolean
+  /** Continue a stopped evaluation in its trace: only the ablation runs it lacks, no learning. */
+  resume: boolean
   runBudgetUsd: number
   rounds: number
   epochs: number
@@ -49,6 +51,7 @@ export function parseEvalArgs(
     options: {
       set: { type: 'string', default: 'easy' },
       probe: { type: 'boolean', default: false },
+      resume: { type: 'boolean', default: false },
       'run-budget': { type: 'string', default: '0.25' },
       rounds: { type: 'string' },
       epochs: { type: 'string', default: '3' },
@@ -70,6 +73,7 @@ export function parseEvalArgs(
   const args: EvalArgs = {
     set,
     probe,
+    resume: values.resume,
     runBudgetUsd: positive('run-budget', values['run-budget']),
     rounds: count('rounds', values.rounds ?? (probe ? '1' : '3')),
     epochs: count('epochs', values.epochs),
