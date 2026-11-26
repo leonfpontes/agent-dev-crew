@@ -11,6 +11,7 @@ import {
   playbookHistory,
   requestMatrix,
   seed,
+  seedRequestsOf,
   stepEvents,
   type SeedEvaluation,
 } from './index.js'
@@ -162,5 +163,56 @@ describe('seed with a real evaluation', () => {
       { run_id: 142, status: 'proposed', playbook_version: 3 },
       { run_id: 142, status: 'rejected', playbook_version: null },
     ])
+  })
+})
+
+describe('seed with a real hard evaluation', () => {
+  const HARD: SeedEvaluation = {
+    ...EVALUATION,
+    set: 'hard',
+    runs: EVALUATION.runs.map((r) => ({ ...r, requestId: 'stock-and-returns', hiddenTotal: 17 })),
+  }
+  const hardSeeded = () => {
+    const db = openTrace(':memory:')
+    migrate(db)
+    seed(db, new Date('2026-11-26T12:00:00Z'), { evaluation: HARD })
+    return db
+  }
+
+  it('writes only the evaluation: no example runs, no example proposal', () => {
+    const db = hardSeeded()
+    const origins = db.prepare('SELECT DISTINCT origin FROM runs').all() as { origin: string }[]
+    expect(origins).toEqual([{ origin: 'eval' }])
+    expect(getRun(db, 142)).toBeUndefined()
+    const history = playbookHistory(db) as { version: number; status: string }[]
+    expect([...new Set(history.map((h) => `${h.version}:${h.status}`))]).toEqual(['2:approved', '1:approved'])
+    expect(db.prepare('SELECT COUNT(*) AS n FROM lessons').get()).toEqual({ n: 1 })
+  })
+
+  it('takes titles and request texts from the frozen hard requests', () => {
+    const db = hardSeeded()
+    const hard = seedRequestsOf('hard').find((r) => r.id === 'stock-and-returns')!
+    expect(requestMatrix(db)[0]).toMatchObject({
+      requestId: 'stock-and-returns',
+      title: hard.title,
+      hiddenTests: 17,
+    })
+    const row = db.prepare('SELECT DISTINCT request FROM runs').all() as { request: string }[]
+    expect(row).toEqual([{ request: hard.request }])
+    expect(evaluationSummary(db, 'main').find((s) => s.variant === 'crew')!.rounds).toBe(2)
+  })
+
+  it('refuses a request of the other set, and an unknown set', () => {
+    const db = () => {
+      const d = openTrace(':memory:')
+      migrate(d)
+      return d
+    }
+    expect(() => seed(db(), undefined, { evaluation: { ...HARD, runs: EVALUATION.runs } })).toThrow(
+      'unknown hard request "cancel-order"',
+    )
+    expect(() => seed(db(), undefined, { evaluation: { ...EVALUATION, set: 'medium' as 'hard' } })).toThrow(
+      'Unknown request set "medium"',
+    )
   })
 })

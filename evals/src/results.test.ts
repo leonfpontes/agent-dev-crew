@@ -60,11 +60,8 @@ describe.each(boards)('$name', ({ stem, set }) => {
     )
   })
 
-  // The replay seed holds the easy set (its requests are the seed's); the hard set isn't seeded.
-  it.runIf(set === 'easy')(
-    'is what the replay demo shows: the seed reproduces every number of the scoreboard',
-    () => {
-      expectReplayToMatch(results)
-    },
-  )
+  // Each set seeds its own replay database (the hard one holds only its evaluation).
+  it('is what the replay demo shows: the seed reproduces every number of the scoreboard', () => {
+    expectReplayToMatch(results)
+  })
 })

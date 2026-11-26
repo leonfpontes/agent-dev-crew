@@ -6,18 +6,27 @@
 //   screens read as the approved design: they are example data, never a measurement.
 // With a real evaluation (`seed(db, now, { evaluation })`, from evals/results/latest.json) the
 // Evaluation data and the playbook history are the measured ones instead, and the example runs
-// point at the real playbook versions (see seedReal below).
+// point at the real playbook versions (see seedReal below). The hard set (evals/results/hard.json)
+// seeds a database of its own with only its evaluation: each set has its own playbook history.
 // Everything is deterministic: the same `now` (and evaluation) gives the same database.
 
 import type { StatementSync } from 'node:sqlite'
 
 import type { Variant } from '@crew/core'
 
-import type { EvalSuite, FailureReason, PlaybookSection, RunStatus } from './contracts.js'
+import {
+  EVAL_SETS,
+  type EvalSet,
+  type EvalSuite,
+  type FailureReason,
+  type PlaybookSection,
+  type RunStatus,
+} from './contracts.js'
 import type { TraceDb } from './db.js'
 import { unifiedDiff } from './diff.js'
 import { SEED_PLAYBOOK, type SeedPlaybookVersion } from './seed-playbook.js'
-import { SEED_REQUESTS } from './seed-requests.js'
+import { SEED_REQUESTS, type SeedRequest } from './seed-requests.js'
+import { SEED_REQUESTS_HARD } from './seed-requests-hard.js'
 import { SEED_MODEL, SEED_RUNS, type SeedRun, type SeedStep, type SeedTokens } from './seed-runs.js'
 
 /** The default "now" of the seed. The replay API can pass the real time to keep "2 min ago" fresh. */
@@ -38,9 +47,14 @@ const splitTokens = (tokens: SeedTokens | number): { input: number; cached: numb
   return { input: allIn - cached, cached, out }
 }
 
-function requestOf(id: string) {
-  const request = SEED_REQUESTS.find((r) => r.id === id)
-  if (!request) throw new Error(`Seed run uses unknown request "${id}".`)
+/** The frozen requests of a set: the seed's titles and request texts come from here. */
+export function seedRequestsOf(set: EvalSet): SeedRequest[] {
+  return set === 'hard' ? SEED_REQUESTS_HARD : SEED_REQUESTS
+}
+
+function requestOf(id: string, set: EvalSet = 'easy') {
+  const request = seedRequestsOf(set).find((r) => r.id === id)
+  if (!request) throw new Error(`Seed run uses unknown ${set} request "${id}".`)
   return request
 }
 
@@ -537,6 +551,8 @@ function seedEvaluation(writer: Writer, now: Date) {
 
 /** What the seed needs from a real evaluation: the shape of evals/results/latest.json (a subset). */
 export interface SeedEvaluation {
+  /** The request set it measured (the scoreboard's `set`); easy when absent. */
+  set?: EvalSet
   runs: {
     id: number
     requestId: string
@@ -611,8 +627,12 @@ function withRule(content: string, section: string, rule: string): string {
  * at the real versions: the example's v7 becomes the learned version, older ones count back from
  * it, and run #142's proposal becomes the next version, waiting for a person. Example lessons whose
  * rule the real playbook doesn't have are recorded as rejected.
+ * The hard set gets only its evaluation (runs, playbook history and lessons): the example runs and
+ * #142's proposal are easy requests and an easy rule, so they stay in the easy database.
  */
 function seedReal(writer: Writer, now: Date, evaluation: SeedEvaluation) {
+  const set = evaluation.set ?? 'easy'
+  if (!EVAL_SETS.includes(set)) throw new Error(`Unknown request set "${String(set)}".`)
   const versions = [...evaluation.playbook.versions].sort((a, b) => a.version - b.version)
   const approved = versions.filter((v) => v.status === 'approved')
   const learned = approved[approved.length - 1]
@@ -644,7 +664,7 @@ function seedReal(writer: Writer, now: Date, evaluation: SeedEvaluation) {
       content: v.content,
       decidedBy: (v.decidedBy ?? undefined) as SeedPlaybookVersion['decidedBy'],
     })),
-    proposal,
+    ...(set === 'easy' ? [proposal] : []),
   ])
 
   const contentOf = (version: number) =>
@@ -672,7 +692,7 @@ function seedReal(writer: Writer, now: Date, evaluation: SeedEvaluation) {
     events: remapEvents(step.events),
     children: step.children?.map(remapStep),
   })
-  for (const run of SEED_RUNS) {
+  for (const run of set === 'easy' ? SEED_RUNS : []) {
     const { startedMinutesAgo, requestId, ...rest } = run
     writer.run({
       ...rest,
@@ -700,7 +720,7 @@ function seedReal(writer: Writer, now: Date, evaluation: SeedEvaluation) {
     const tokens = r.tokens.input + r.tokens.cacheRead + r.tokens.cacheWrite + r.tokens.output
     writer.run({
       id: idOf.get(r.id)!,
-      request: requestOf(r.requestId),
+      request: requestOf(r.requestId, set),
       variant: r.variant,
       playbookVersion: r.playbookVersion,
       origin: 'eval',
@@ -737,7 +757,8 @@ export interface SeedCounts {
 
 /**
  * Writes the example data into an empty, migrated trace database, in one transaction. With
- * `evaluation`, the Evaluation data and the playbook history are the real ones (seedReal).
+ * `evaluation`, the Evaluation data and the playbook history are the real ones (seedReal); a hard
+ * evaluation (`set: 'hard'`) writes only its evaluation, for a database of its own.
  */
 export function seed(
   db: TraceDb,

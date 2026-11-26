@@ -18,6 +18,13 @@ export const EVAL_SUITES = ['main', 'learning-curve'] as const
 export type EvalSuite = (typeof EVAL_SUITES)[number]
 
 /**
+ * The request sets of the evaluation (`easy` is the baseline, `hard` the two-part requests). Each set
+ * has its own playbook history, so each lives in its own trace database, never mixed in one.
+ */
+export const EVAL_SETS = ['easy', 'hard'] as const
+export type EvalSet = (typeof EVAL_SETS)[number]
+
+/**
  * What a step does. `fix-loop` groups one Engineer fix and the QA run after it; `solo` is the one
  * step of the single-agent variant; `retro` runs after the pipeline and blocks nothing.
  */

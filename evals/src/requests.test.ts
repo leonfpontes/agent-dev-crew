@@ -2,7 +2,7 @@ import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'nod
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { SEED_REQUESTS } from '@crew/trace'
+import { SEED_REQUESTS, SEED_REQUESTS_HARD } from '@crew/trace'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -236,6 +236,14 @@ describe('the replay seed', () => {
     const { requests, problems } = loadRequests(requestsDir, exampleDir)
     expect(problems).toEqual([])
     expect(SEED_REQUESTS).toEqual(
+      requests.map((r) => ({ id: r.id, title: r.title, request: r.request, hiddenTests: r.hiddenTestCount })),
+    )
+  })
+
+  it('freezes the hard requests exactly as evals/requests-hard has them', () => {
+    const { requests, problems } = loadRequestSet(evalsDir, exampleDir, 'hard')
+    expect(problems).toEqual([])
+    expect(SEED_REQUESTS_HARD).toEqual(
       requests.map((r) => ({ id: r.id, title: r.title, request: r.request, hiddenTests: r.hiddenTestCount })),
     )
   })

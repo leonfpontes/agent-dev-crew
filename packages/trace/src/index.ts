@@ -29,9 +29,11 @@ export {
   EVAL_SERIES,
   seed,
   SEED_NOW,
+  seedRequestsOf,
   type SeedCounts,
   type SeedEvaluation,
 } from './seed.js'
 export { SEED_PLAYBOOK } from './seed-playbook.js'
 export { SEED_REQUESTS, type SeedRequest } from './seed-requests.js'
+export { SEED_REQUESTS_HARD } from './seed-requests-hard.js'
 export { SEED_RUNS } from './seed-runs.js'
