@@ -1,8 +1,7 @@
 // Orders: placed from a cart, then paid and shipped.
 import type { Context } from '../context.js'
-import { fail, json, type Router } from '../http.js'
+import { fail, json, readJson, type Router } from '../http.js'
 import { formatCents, totalsOf } from '../money.js'
-import { readJson } from '../http.js'
 import type { Order } from '../types.js'
 
 export function orderRoutes(router: Router, { db, now }: Context): void {

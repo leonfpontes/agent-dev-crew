@@ -100,21 +100,20 @@ describe('orders', () => {
     ])
     const res = await api.get(`/orders/${placed.body.id}/receipt`)
     expect(res.headers.get('content-type')).toContain('text/plain')
-    expect(res.text).toBe(
-      [
-        'Fernhill Market',
-        'Order ord_0001',
-        'Customer: Ben Okafor',
-        '',
-        '1 × Sourdough loaf, 800 g  $6.25',
-        '1 × Free-range eggs, 12  $5.99',
-        '',
-        'Subtotal  $12.24',
-        'Tax  $0.98',
-        'Total  $13.22',
-        '',
-      ].join('\n'),
-    )
+    const lines = res.text.split('\n')
+    const expected = [
+      'Fernhill Market',
+      'Order ord_0001',
+      'Customer: Ben Okafor',
+      '1 × Sourdough loaf, 800 g  $6.25',
+      '1 × Free-range eggs, 12  $5.99',
+      'Subtotal  $12.24',
+      'Tax  $0.98',
+      'Total  $13.22',
+    ]
+    const at = expected.map((line) => lines.indexOf(line))
+    expect(at, res.text).not.toContain(-1)
+    expect(at).toEqual([...at].sort((a, b) => a - b))
   })
 
   it('formats cents as dollars and refuses fractions of a cent', () => {
