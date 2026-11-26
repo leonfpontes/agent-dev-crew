@@ -14,3 +14,4 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions: [Sem
 - `@crew/engine`: the crew run (plan, human gate, code, review, test, up to 2 fix loops, retro hook) with a budget check before every model call, a fallback model, guarded tools, the trace of every step and the hidden-test scoring (ADR 0003).
 - The crew's model layer (ADR 0004): role prompts in files, Claude Haiku 5.5 for every role with Haiku 4.5 as the fallback, the Messages API provider with retries and caching, the real price table, and the automatic retro that records lessons and proposes playbook versions, which count only once approved.
 - The sandbox blocks the network and runs the example's tests inside it, with test workers that inherit the rules.
+- `@crew/api`: the trace API for the four screens, the replay demo (no key, no cost, in memory on Vercel) and the local live mode with the human gate in the app; `pnpm demo`, `pnpm crew serve` and `pnpm crew run` (ADR 0005).

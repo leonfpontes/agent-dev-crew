@@ -14,6 +14,8 @@ pnpm qa                    # pnpm check, then the end-to-end tests
 pnpm vitest run <file>     # one test
 pnpm --filter <package> build   # one package (names in docs/ARCHITECTURE.md)
 E2E_PORT=4300 pnpm e2e     # end-to-end tests on your own port
+pnpm demo                  # the replay demo: build, seed, serve app + API on 127.0.0.1:8787
+pnpm crew serve --live     # live mode with your ANTHROPIC_API_KEY (.env.local); pnpm crew run "<request>" in the terminal
 ```
 
 ## What the code doesn't tell you

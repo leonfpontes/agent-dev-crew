@@ -72,6 +72,32 @@ Event payloads: `model.request` `{ prompt, playbook: { version, section }, syste
 `loop.started` `{ loop, of, reason }`; `budget.exceeded` `{ budgetUsd, spentUsd }`. `raw` is the Messages API
 record, trimmed only where marked `…`.
 
+### API (`@crew/api`)
+
+One Fetch handler (`createApi`) serves the app locally (`pnpm crew serve`, 127.0.0.1:8787, with the built
+app on the same port) and on Vercel (`api/handler.ts`, replay only) ([ADR 0005](adr/0005-trace-api-and-replay.md)).
+Rows keep the trace's column names (`snake_case`); money is in micros, time in ms. Errors are
+`{ "error": "<what went wrong and what to do>" }`, sometimes with `how`.
+
+| Method and route                           | Answer                                                                                                                                                                                                                                                                                                                                    |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/meta`                            | `{ mode: "replay" \| "live", exampleData, replaySpeeds: [1, 4], live: { available, how? } }`                                                                                                                                                                                                                                              |
+| `GET /api/runs?status=&variant=&q=&limit=` | `{ runs: RunListRow[], summary: RunsSummary, waiting: number[] }`: newest first, no evaluation runs; `waiting` = runs whose gate waits for a person (live). 400 on an unknown status or variant, or a `limit` outside 1–500                                                                                                               |
+| `GET /api/runs/:id`                        | `{ run, steps: StepRow[], costByPart, lessons, gate: { waiting, plan, decidable } }`. In replay the gate step shows the recorded `decision`, `decided_by` and `comment`; `decidable` is true only live, while the run waits. 404 for an unknown run                                                                                       |
+| `GET /api/runs/:id/timeline`               | `{ runId, durationMs, replaySpeeds, events: { seq, step_id, offset_ms, kind, payload }[] }` in `seq` order. Payloads kept for `run.*`, `step.*`, `gate.*`, `loop.started`, `budget.exceeded`, `lesson.proposed`; `null` for model and tool events (fetch them per step). Play a run at speed `s` by showing each event at `offset_ms / s` |
+| `GET /api/runs/:id/steps/:stepId/events`   | `{ events: EventRow[] }` with parsed payloads: prompt, response, tool calls and results, raw API records. 404 when the step isn't in the run                                                                                                                                                                                              |
+| `GET /api/playbook`                        | `{ versions }`: every playbook version with its content, diff, status and source                                                                                                                                                                                                                                                          |
+| `GET /api/evaluation`                      | `{ exampleData, main: VariantStats[], learningCurve: { points: CurvePoint[], variants: VariantStats[] }, matrix: MatrixRow[] }`                                                                                                                                                                                                           |
+| `POST /api/runs` (live, with a key)        | body `{ request (20–4000 chars), title?, variant? }` → 202 `{ runId }` as soon as the run exists. 409 while another run is in progress, or without a key (with `how`)                                                                                                                                                                     |
+| `POST /api/runs/:id/gate` (live)           | body `{ decision: "approve" \| "request-changes" \| "reject", comment? }`; request changes and reject need a comment → `{ runId, decision }`. 409 when the run isn't waiting                                                                                                                                                              |
+
+Replay answers every write with 405 and `how`. Live accepts writes only from local origins (403
+otherwise). Bodies are limited to 32 KB. The replay never calls a model or the network.
+
+Commands: `pnpm demo` (build, seed `.crew/replay.sqlite`, serve on http://127.0.0.1:8787); `pnpm crew serve
+[--live] [--port]`; `pnpm crew run "<request>" [--variant] [--policy]` (a live run in the terminal, the gate
+as a y / c / n prompt).
+
 ### Hidden tests
 
 `evals/requests/requests.json` lists the 10 requests; `evals/requests/<id>/` holds the hidden test files
