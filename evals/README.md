@@ -47,6 +47,9 @@ several routes, state that carries from one request to the next (stock, carts, o
 refunds), changes across modules, and rules that only hold when both parts are right. Every expected
 status code, field and error message is written in the request, under "Part 1", "Part 2" and
 "Together"; nothing is hidden. A request passes only when all its hidden tests pass (15 to 18 each).
+The probe of this set also came out at 8 of 8. We stopped there, as planned, instead of making the
+requests unfair: on fully specified requests of this size, Claude Haiku 5.5 alone is enough. See the
+scoreboard for the full runs.
 
 | Request                 | Parts                                | What only works when both parts are right                                                        |
 | ----------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------ |
