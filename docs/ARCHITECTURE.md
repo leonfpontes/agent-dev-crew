@@ -57,14 +57,14 @@ milliseconds, `offset_ms` counted from the start of the run.
 | `lessons`           | lesson of a run's retro: error, cause, rule, playbook section     | retro                            |
 | `playbook_versions` | playbook.md version: content, diff from the one before, status    | retro (proposed), gate (decided) |
 
-| Contract                                                                                                                                                              | Defined in                        | Used by                 |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ----------------------- |
-| Run statuses `running`, `waiting`, `passed`, `failed`, `rejected`; failure reasons `fix-loops-exhausted`, `over-budget`, `error`                                      | `packages/trace/src/contracts.ts` | engine, API, app        |
-| Run origins `live`, `eval`, `example`; evaluation suites `main` (ablation) and `learning-curve`                                                                       | `contracts.ts`                    | engine, evaluation, app |
-| Step kinds `plan`, `gate`, `code`, `review`, `test`, `fix-loop`, `fix`, `retro`, `solo` (single agent); gate deciders `person`, `policy`                              | `contracts.ts`                    | engine, app             |
-| Event kinds (`run.*`, `step.*`, `model.request`, `model.response`, `tool.call`, `tool.result`, `gate.*`, `loop.started`, `budget.exceeded`, `lesson.proposed`, `log`) | `contracts.ts`                    | engine, Run detail      |
-| The reads of the four screens (`listRuns`, `runsSummary`, `getRun`, `stepEvents`, `playbookHistory`, `evaluationSummary`, `learningCurve`, `requestMatrix`)           | `packages/trace/src/queries.ts`   | API (B3), app           |
-| Replay seed: `seed(db, now)`; `pnpm --filter @crew/trace seed` writes `.crew/replay.sqlite`. Example data, never measured                                             | `packages/trace/src/seed.ts`      | replay API, e2e tests   |
+| Contract                                                                                                                                                                                                                                                                                                        | Defined in                        | Used by                 |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ----------------------- |
+| Run statuses `running`, `waiting`, `passed`, `failed`, `rejected`; failure reasons `fix-loops-exhausted`, `over-budget`, `error`                                                                                                                                                                                | `packages/trace/src/contracts.ts` | engine, API, app        |
+| Run origins `live`, `eval`, `example`; evaluation suites `main` (ablation) and `learning-curve`                                                                                                                                                                                                                 | `contracts.ts`                    | engine, evaluation, app |
+| Step kinds `plan`, `gate`, `code`, `review`, `test`, `fix-loop`, `fix`, `retro`, `solo` (single agent); gate deciders `person`, `policy`                                                                                                                                                                        | `contracts.ts`                    | engine, app             |
+| Event kinds (`run.*`, `step.*`, `model.request`, `model.response`, `tool.call`, `tool.result`, `gate.*`, `loop.started`, `budget.exceeded`, `lesson.proposed`, `log`)                                                                                                                                           | `contracts.ts`                    | engine, Run detail      |
+| The reads of the four screens (`listRuns`, `runsSummary`, `getRun`, `stepEvents`, `playbookHistory`, `evaluationSummary`, `learningCurve`, `requestMatrix`)                                                                                                                                                     | `packages/trace/src/queries.ts`   | API (B3), app           |
+| Replay seed: `seed(db, now, { evaluation? })`; `pnpm --filter @crew/trace seed` writes `.crew/replay.sqlite`. The example runs are example data; the Evaluation data and the playbook history are the real scoreboard (`evals/results/latest.json`) when it exists, the example numbers otherwise (`--example`) | `packages/trace/src/seed.ts`      | replay API, e2e tests   |
 
 Event payloads: `model.request` `{ prompt, playbook: { version, section }, system, rules[], user, raw }`;
 `model.response` `{ text, stopReason, raw }` or, for the PO, `{ plan: { steps[], acceptance[], files[], estimateUsd } }`;
@@ -107,6 +107,17 @@ run's copy of `fernhill-orders` at `hidden/`; they import the app from `../src/i
 HTTP API (`createApp({ db, now }).fetch(request)`). `pnpm --filter @crew/evals validate` proves each
 request is a fair test: its hidden tests fail on the example as it ships and pass on the solution, which
 keeps the 20 visible tests green and type-checks.
+
+### Evaluation and scoreboard
+
+`pnpm eval` ([ADR 0006](adr/0006-evaluation-harness-and-scoreboard.md), method in [evals/README.md](../evals/README.md))
+runs the learning epochs, the ablation and the curve's other rounds under hard budgets, into a trace at
+`.crew/eval.sqlite`, then writes the scoreboard.
+
+| Contract                                                                                                                                                                                                                                                                                                                                                                                                                        | Defined in             | Used by                                       |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | --------------------------------------------- |
+| `runEvaluation(options) → { spentMicros, spentBySuite, runs, skipped, stoppedEarly, epochVersions, learnedVersion, errors }`; budgets by reservation (`Budget`), curve rounds numbered from `CURVE_ROUND_BASE + 1`                                                                                                                                                                                                              | `evals/src/harness.ts` | `pnpm eval`                                   |
+| Scoreboard `evals/results/latest.json` (`ResultsSchema`, `schema: 1`): `main[]` per variant (pass rate, hidden-test rate, cost, tokens, seconds, fix loops: mean ± sd over rounds; gate interventions; cost), `curve[]` (version, rounds, pass rate, rules), `matrix[]`, `playbook` (learned version, versions, lessons), `runs[]` (one row per run), `spentUsd`, `budgetUsd`, `stoppedEarly`; `latest.md` has the same numbers | `evals/src/results.ts` | replay seed, README, share images, video, app |
 
 ### Engine (`@crew/engine`)
 
