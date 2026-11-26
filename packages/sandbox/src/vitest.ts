@@ -4,7 +4,7 @@
 // package.json and a pnpm-workspace.yaml at its root (`prepareForVitest`), so the runner never looks
 // above it: the permission model denies reading files outside, even ones that don't exist.
 
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 
@@ -82,18 +82,21 @@ const firstLine = (text: string) =>
     ?.trim()
     .slice(0, 300) ?? ''
 
-/** Runs the tests matching `include` (default: the config's) in the sandbox and reads the report. */
+/** Runs the tests matching `include` in the sandbox and reads the report. */
 export async function runVitest(
   repoDir: string,
-  { include, timeoutMs = 120_000 }: { include?: string[]; timeoutMs?: number } = {},
+  { include = ['tests/**/*.test.ts'], timeoutMs = 120_000 }: { include?: string[]; timeoutMs?: number } = {},
 ): Promise<TestReport> {
   const repo = realPath(repoDir)
+  // The include goes in the config the sandbox owns (the agents can't write it), rewritten per run.
+  prepareForVitest(repo, include)
+  rmSync(path.join(repo, '.test-results.json'), { force: true })
   const started = Date.now()
   const result = await runNodeScript(
     VITEST,
     { read: [repo, NODE_MODULES], write: [repo], childProcesses: true, addons: true },
     { cwd: repo, timeoutMs },
-    ['run', '--root', repo, '--configLoader', 'native', ...(include ?? [])],
+    ['run', '--root', repo, '--configLoader', 'native'],
   )
   const durationMs = Date.now() - started
   let json: VitestJson
