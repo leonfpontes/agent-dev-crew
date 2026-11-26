@@ -14,6 +14,12 @@ learns from each run. An evaluation measures the crew against a single agent, wi
 [Watch the 1-minute video](docs/media/crew-demo.mp4) (MP4, English captions, no narration;
 [captions as WebVTT](docs/media/crew-demo.en.vtt)).
 
+## The problem
+
+A coding agent writes code fast, but nobody checks its plan before the code exists, nobody can say
+what each step cost, and its own report of "tests pass" is all the evidence there is. Agent Dev Crew
+puts a person at the plan, records every step, and lets hidden tests, not the agents, decide.
+
 ## Quickstart
 
 Node 22 and pnpm. The demo replays example runs: no API key, no cost.
