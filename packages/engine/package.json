@@ -1,0 +1,28 @@
+{
+  "name": "@crew/engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Runs the crew: the PO plans, a person or a policy decides at the gate, the Engineer codes, the Reviewer reviews and QA tests, with a bounded fix loop, a budget and a trace of every step.",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "crew-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@crew/core": "workspace:*",
+    "@crew/sandbox": "workspace:*",
+    "@crew/trace": "workspace:*",
+    "valibot": "1.5.0"
+  },
+  "devDependencies": {
+    "vitest": "5.1.2"
+  }
+}
