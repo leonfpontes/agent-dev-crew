@@ -50,6 +50,9 @@ export default defineConfig({
         '**/*.test.*',
         '**/src/test/**',
         'apps/web/src/main.tsx',
+        // Command-line entry points: argv to the tested functions (args.ts, harness.ts, validate.ts).
+        // eval-cli spends real money, so no test runs it.
+        'evals/src/*-cli.ts',
         '.crew/**',
         'evals/requests/**',
         'evals/requests-hard/**',
